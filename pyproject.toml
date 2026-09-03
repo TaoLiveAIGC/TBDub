@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tbdub"
+version = "0.1.0"
+description = "Inference code for TBDub audio-driven video dubbing"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+  {name = "Bihan Li"},
+  {name = "Xinyang Li"},
+  {name = "Zeran Xu"},
+  {name = "Meiguang Jin"},
+  {name = "Junfeng Ma"},
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["diffsynth*", "dwpose_tools*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
