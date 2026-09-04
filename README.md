@@ -1,5 +1,7 @@
 # TBDub
 
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Model-yellow)](https://huggingface.co/TaoLiveAIGC/TBDub)
+
 TBDub is an audio-driven video dubbing system designed for high-fidelity identity preservation, temporal consistency, and robust lip synchronization under challenging motion, pose, occlusion, and cross-domain conditions.
 
 This repository contains the inference code only. Model checkpoints are not included yet.
