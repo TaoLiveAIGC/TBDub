@@ -175,34 +175,76 @@ def run_inference(
         raise ValueError(
             f"--start-frame must be in [0, {len(sample.reference_video) - 1}], got {start_frame}."
         )
-    raw_video = sample.raw_video[start_frame:]
-    reference_video = sample.reference_video[start_frame:]
-    bboxes = sample.bboxes[start_frame:]
+    source_raw_video = sample.raw_video[start_frame:]
+    source_reference_video = sample.reference_video[start_frame:]
+    source_bboxes = sample.bboxes[start_frame:]
+    source_video_length = min(
+        len(source_raw_video), len(source_reference_video), len(source_bboxes)
+    )
+    if source_video_length == 0:
+        raise ValueError("No usable video frames remain after --start-frame.")
 
+    is_student = args.inference_mode == "student"
+    first_clip_preroll = is_student and args.student_first_clip_padding
+    stride = CLIP_NUM_FRAMES - MOTION_NUM_FRAMES
     total_length = get_total_length(
         sample.audio_path,
         clip_num_frames=CLIP_NUM_FRAMES,
         motion_num_frames=MOTION_NUM_FRAMES,
     )
-    stride = CLIP_NUM_FRAMES - MOTION_NUM_FRAMES
-    num_clips = 1 + max(0, total_length - CLIP_NUM_FRAMES) // stride
-    indices = make_pingpong_indices(len(reference_video), total_length)
-    reference_video = [reference_video[index] for index in indices]
-    raw_video = [raw_video[index] for index in indices]
-    bboxes = [bboxes[index] for index in indices]
+    audio_length = get_audio_length(sample.audio_path)
+    real_length = min(audio_length, total_length)
+    if real_length <= 0:
+        raise ValueError(f"The driving audio has no usable output frames: {audio_length}.")
 
-    motion_video = None
+    if first_clip_preroll:
+        num_clips = max(1, (real_length + stride - 1) // stride)
+        required_video_length = num_clips * stride
+    else:
+        num_clips = 1 + max(0, total_length - CLIP_NUM_FRAMES) // stride
+        required_video_length = total_length
+
+    indices = make_pingpong_indices(source_video_length, required_video_length)
+    reference_video = [source_reference_video[index] for index in indices]
+    raw_video = [source_raw_video[index] for index in indices]
+    bboxes = [source_bboxes[index] for index in indices]
+    model_reference_video = (
+        [reference_video[0]] * MOTION_NUM_FRAMES + reference_video
+        if first_clip_preroll
+        else reference_video
+    )
+
+    num_steps = args.num_student_steps if is_student else args.num_inference_steps
+    sigma_shift = args.sigma_shift
+    if sigma_shift is None:
+        sigma_shift = 1.0 if is_student else 5.0
+
+    print(
+        f"[TBDub] mode={args.inference_mode}, source_frames={source_video_length}, "
+        f"output_frames={real_length}, total_length={total_length}, clips={num_clips}, "
+        f"steps={num_steps}, sigma_shift={sigma_shift}, "
+        f"motion_from_latents={args.motion_from_latents}"
+    )
+
+    motion_video = model_reference_video[:MOTION_NUM_FRAMES] if first_clip_preroll else None
     motion_latents = None
     hubert_features = None
     latent_segments = []
     clip_start = 0
 
     for clip_index in range(num_clips):
-        print(f"[TBDub] clip {clip_index + 1}/{num_clips}, start_frame={clip_start}")
-        reference_clip = reference_video[clip_start : clip_start + CLIP_NUM_FRAMES]
+        audio_start = clip_start - MOTION_NUM_FRAMES if first_clip_preroll else clip_start
+        clip_seed = args.seed + clip_index if is_student else args.seed
+        print(
+            f"[TBDub] clip {clip_index + 1}/{num_clips}, "
+            f"start_frame={clip_start}, audio_start={audio_start}, seed={clip_seed}"
+        )
+        reference_clip = model_reference_video[
+            clip_start : clip_start + CLIP_NUM_FRAMES
+        ]
         generated_clip, outputs = pipeline(
             ref_video=reference_clip,
-            start_idx=clip_start,
+            start_idx=audio_start,
             audio_npy_path=None,
             audio_wav_path=sample.audio_path,
             hubert_feat=hubert_features,
@@ -217,11 +259,15 @@ def run_inference(
             motion_latents_num_frames=MOTION_LATENT_NUM_FRAMES,
             ref_cfg_scale=args.ref_cfg_scale,
             audio_cfg_scale=args.audio_cfg_scale,
-            num_inference_steps=args.num_inference_steps,
-            seed=args.seed,
-            use_dynamic_cfg=True,
+            num_inference_steps=num_steps,
+            sigma_shift=sigma_shift,
+            seed=clip_seed,
+            use_dynamic_cfg=not is_student,
+            cfg_merge=not is_student,
             replace_border_latents=True,
             replace_border_latents_width=1,
+            replace_border_each_step=not is_student,
+            decode_output=not args.motion_from_latents,
         )
         if hubert_features is None:
             hubert_features = outputs.get("hubert_feat")
@@ -249,8 +295,10 @@ def run_inference(
         tile_size=(32, 32),
         tile_stride=(16, 16),
     )
-    real_length = min(get_audio_length(sample.audio_path), total_length)
-    generated_video = pipeline.vae_output_to_video(decoded)[:real_length]
+    generated_video = pipeline.vae_output_to_video(decoded)
+    if first_clip_preroll:
+        generated_video = generated_video[MOTION_NUM_FRAMES:]
+    generated_video = generated_video[:real_length]
     generated_video = color_correction_lab(generated_video, reference_video[:real_length])
 
     output_dir = Path(args.output_dir)
@@ -334,8 +382,21 @@ def parse_args() -> argparse.Namespace:
         dest="audio_feat_window_size", type=int, default=0,
     )
     parser.add_argument(
+        "--inference-mode", "--inference_mode",
+        dest="inference_mode", choices=("teacher", "student"), default="teacher",
+        help="Sampling mode. Student mode uses a distilled single-branch denoising path.",
+    )
+    parser.add_argument(
         "--num-inference-steps", "--num_inference_steps",
         dest="num_inference_steps", type=int, default=30,
+    )
+    parser.add_argument(
+        "--num-student-steps", "--num_student_steps",
+        dest="num_student_steps", type=int, default=2,
+    )
+    parser.add_argument(
+        "--sigma-shift", "--sigma_shift", dest="sigma_shift", type=float,
+        help="FlowMatch sigma shift; defaults to 5.0 for Teacher and 1.0 for Student.",
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--per-chunk-audio", "--per_chunk_audio", dest="per_chunk_audio", action="store_true")
@@ -346,6 +407,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--motion-from-latents", "--motion_from_latents",
         dest="motion_from_latents", action="store_true",
+    )
+    parser.add_argument(
+        "--student-first-clip-padding", "--student_first_clip_padding",
+        dest="student_first_clip_padding", action="store_true", default=True,
+        help="Prepend five copies of the first frame in Student mode (default).",
+    )
+    parser.add_argument(
+        "--no-student-first-clip-padding", "--no_student_first_clip_padding",
+        dest="student_first_clip_padding", action="store_false",
+        help="Disable the Student first-clip pre-roll.",
     )
     parser.add_argument("--save-comparison", action="store_true", help="Also save side-by-side debug videos.")
     parser.add_argument(
@@ -361,6 +432,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.num_inference_steps <= 0:
+        raise ValueError("--num-inference-steps must be greater than zero.")
+    if args.num_student_steps <= 0:
+        raise ValueError("--num-student-steps must be greater than zero.")
+    if args.sigma_shift is not None and args.sigma_shift <= 0:
+        raise ValueError("--sigma-shift must be greater than zero.")
+
     args.video = str(Path(args.video).expanduser().resolve())
     if args.audio:
         args.audio = str(Path(args.audio).expanduser().resolve())

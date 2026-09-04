@@ -220,6 +220,7 @@ class TBDubPipeline(BasePipeline):
         use_dynamic_cfg: Optional[bool] = False,
         replace_border_latents: Optional[bool] = False,
         replace_border_latents_width: Optional[int] = 1,
+        replace_border_each_step: Optional[bool] = True,
         cfg_merge: Optional[bool] = True,
         # Scheduler
         num_inference_steps: Optional[int] = 50,
@@ -228,6 +229,7 @@ class TBDubPipeline(BasePipeline):
         tiled: Optional[bool] = False,
         tile_size: Optional[tuple[int, int]] = (32, 32),
         tile_stride: Optional[tuple[int, int]] = (16, 16),
+        decode_output: Optional[bool] = True,
         # Teacache
         tea_cache_l1_thresh: Optional[float] = None,
         tea_cache_model_id: Optional[str] = "",
@@ -301,7 +303,7 @@ class TBDubPipeline(BasePipeline):
             # Timestep
             timestep = timestep.unsqueeze(0).to(dtype=self.torch_dtype, device=self.device) 
             # border replace
-            if replace_border_latents:
+            if replace_border_latents and replace_border_each_step:
                 sigma = timestep / self.scheduler.num_train_timesteps
                 sigma_shift = torch.clamp(sigma, min=0.0, max=0.95).to(dtype=ref_latents.dtype, device=ref_latents.device)
                 ref_latents_noised = get_xt_from_x0(ref_latents, noise, sigma_shift)
@@ -311,17 +313,14 @@ class TBDubPipeline(BasePipeline):
                     start_frame=motion_latents_num_frames if inputs.get("motion_latents") is not None else 0,
                     border_width=replace_border_latents_width,
                 )
-            
+
             # Inference
-            if cfg_merge: 
-                noise_pred = self.model_fn(**models, **inputs, timestep=timestep)   # torch.Size([3, 48, 20, 32, 32])
-                # split cfg
-                noise_pred_nega, noise_pred_posi_r, noise_pred_posi_ra = noise_pred.chunk(3, dim=0) 
+            noise_pred = self.model_fn(**models, **inputs, timestep=timestep)
+            if cfg_merge:
+                noise_pred_nega, noise_pred_posi_r, noise_pred_posi_ra = noise_pred.chunk(3, dim=0)
                 if use_dynamic_cfg:
                     t = timestep / self.scheduler.num_train_timesteps
                     _audio_guidance_scale = audio_cfg_scale * max((t ** 1.5), 0.5)
-                    # _audio_guidance_scale = audio_cfg_scale
-                    # _audio_guidance_scale = audio_cfg_scale * (1 - (1 - t) ** 1.5)
                     _ref_guidance_scale = get_ref_guidance_scale_schedule(t, ref_cfg_scale, trans_p1=0.8, trans_p2=0.4, trans_width=0.1)
                 else:
                     _audio_guidance_scale = audio_cfg_scale
@@ -330,12 +329,7 @@ class TBDubPipeline(BasePipeline):
                 noise_pred = noise_pred_nega + \
                     _ref_guidance_scale * (noise_pred_posi_r - noise_pred_nega) + \
                     _audio_guidance_scale * (noise_pred_posi_ra - noise_pred_posi_r)
-                
-                # noise_pred = noise_pred_posi_r + _audio_guidance_scale * (noise_pred_posi_ra - noise_pred_posi_r)
 
-            else:
-                raise NotImplementedError("Only cfg_merge=True is implemented in current version.")
-            
             # Scheduler
             inputs["latents"] = self.scheduler.step(noise_pred, self.scheduler.timesteps[progress_id], inputs["latents"])
             
@@ -352,7 +346,11 @@ class TBDubPipeline(BasePipeline):
             )
             if inputs.get("motion_latents") is not None:
                 inputs["latents"][:, :, 0:motion_latents_num_frames] = inputs["motion_latents"]
-        
+
+        if not decode_output:
+            self.load_models_to_device([])
+            return None, inputs
+
         self.load_models_to_device(['vae'])
         video = self.vae.decode(inputs["latents"], device=self.device, tiled=tiled, tile_size=tile_size, tile_stride=tile_stride)
         if output_type == "quantized":
@@ -361,7 +359,6 @@ class TBDubPipeline(BasePipeline):
             pass
         self.load_models_to_device([])
         return video, inputs # reuse audio feats
-        return inputs
 
 
 

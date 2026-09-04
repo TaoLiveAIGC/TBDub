@@ -10,7 +10,7 @@ def TBDubDiTStateDictConverter(state_dict):
     target_input_dim = 4096
     key_w = "audio_embedding.proj_in.weight"
 
-    state_dict_ = dict(state_dict)
+    state_dict_ = {name: state_dict[name] for name in state_dict}
 
     if key_w in state_dict_:
         old_w = state_dict_[key_w]

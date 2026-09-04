@@ -39,6 +39,7 @@ Place the following files under `checkpoints/`, or provide their paths through t
 checkpoints/
 ├── tbdub_base.safetensors
 ├── tbdub_finetune.safetensors
+├── tbdub_student.safetensors       # optional distilled Student
 ├── models_t5_umt5-xxl-enc-bf16.safetensors
 ├── Wan2.2_VAE.safetensors
 ├── null_prompt_emb.pt
@@ -76,6 +77,27 @@ python inference.py \
 
 The two DiT files are loaded in order: the fine-tuned checkpoint overlays the base checkpoint. The defaults above reproduce the parameter configuration used by the project inference script. A single consolidated checkpoint can also be supplied with one `--dit-checkpoint` path.
 
+### Distilled Student inference
+
+A compatible DMD2 Student checkpoint can run with two denoising steps and no classifier-free guidance:
+
+```bash
+python inference.py \
+  --video path/to/source.mp4 \
+  --audio path/to/driving.wav \
+  --dit-checkpoint \
+    checkpoints/tbdub_base.safetensors \
+    checkpoints/tbdub_student.safetensors \
+  --inference-mode student \
+  --num-student-steps 2 \
+  --sigma-shift 1.0 \
+  --motion-from-latents \
+  --seed 42 \
+  --output-dir results
+```
+
+Checkpoint order matters: the base checkpoint must come first and the Student checkpoint must come last. Student mode uses single-branch denoising and first-clip temporal padding by default. The checkpoint must be distilled for the same two-step schedule, sigma shift, HuBERT conditioning, and 77-frame temporal layout.
+
 Useful options:
 
 - `--cropped-input`: the source is already an aligned face video.
@@ -84,6 +106,7 @@ Useful options:
 - `--preprocess-cache cache/sample.pkl`: reuse face crops and bounding boxes.
 - `--save-comparison`: additionally save side-by-side diagnostic videos.
 - `--preprocess-only`: run face preprocessing without loading TBDub checkpoints.
+- `--no-student-first-clip-padding`: disable the default five-frame Student pre-roll.
 
 Run `python inference.py --help` for checkpoint-path and sampling options.
 
