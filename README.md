@@ -4,7 +4,7 @@
 
 TBDub is an audio-driven video dubbing system designed for high-fidelity identity preservation, temporal consistency, and robust lip synchronization under challenging motion, pose, occlusion, and cross-domain conditions.
 
-This repository contains the inference code only. Model checkpoints are not included yet.
+This repository contains the inference code. Model checkpoints are hosted on [Hugging Face](https://huggingface.co/TaoLiveAIGC/TBDub).
 
 ## Inference pipeline
 
@@ -53,7 +53,9 @@ dwpose_tools/models/
 └── rtmw-x_simcc-cocktail14_pt-ucoco_270e-384x288-f840f204_20231122.pth
 ```
 
-Checkpoint download links and model terms will be added before the public release.
+
+
+Download the released TBDub model weights from [TaoLiveAIGC/TBDub on Hugging Face](https://huggingface.co/TaoLiveAIGC/TBDub), then place the files under `checkpoints/` following the layout above. Auxiliary Wan, T5, HuBERT, and DWPose weights should be obtained from their respective upstream releases.
 
 ## Quick start
 
