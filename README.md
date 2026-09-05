@@ -55,7 +55,7 @@ dwpose_tools/models/
 
 
 
-Download the released TBDub model weights from [TaoLiveAIGC/TBDub on Hugging Face](https://huggingface.co/TaoLiveAIGC/TBDub), then place the files under `checkpoints/` following the layout above. Auxiliary Wan, T5, HuBERT, and DWPose weights should be obtained from their respective upstream releases.
+Download the released TBDub model weights from [TaoLiveAIGC/TBDub on Hugging Face](https://huggingface.co/TaoLiveAIGC/TBDub), then place the files under `checkpoints/` following the layout above. The remaining auxiliary checkpoints can be downloaded from [KlingTeam/X-Dub on Hugging Face](https://huggingface.co/KlingTeam/X-Dub).
 
 ## Quick start
 
@@ -118,23 +118,23 @@ Only load preprocessing cache files that you created or trust, because Python pi
 
 ## Repository structure
 
-```text
-TBDub/
-├── inference.py                  # public inference entry point
-├── preprocessing.py              # DWPose-based face crop and tracking
-├── video_utils.py                # video blending, color, and audio muxing
-├── infer.sh                      # minimal shell wrapper
-├── diffsynth/
-│   ├── pipelines/tbdub.py        # TBDub sampling pipeline
-│   ├── models/tbdub_dit.py       # TBDub DiT architecture
-│   └── ...                       # required DiffSynth runtime modules
-└── dwpose_tools/                 # minimal DWPose inference wrapper/configs
-```
 
-Internal batch jobs, data-generation scripts, evaluation utilities, experiment launchers, editor settings, and hard-coded cluster paths from the development workspace have been intentionally excluded.
 
-## Acknowledgements and license
 
-TBDub builds on open-source components including DiffSynth-Studio, Wan, HuBERT, and DWPose. This cleaned release was derived from and substantially modified relative to the X-Dub codebase; provenance and modification notes are retained in [NOTICE.md](NOTICE.md).
 
-The code in this repository is released under the Apache License 2.0 unless a subcomponent states otherwise. See [LICENSE](LICENSE).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
