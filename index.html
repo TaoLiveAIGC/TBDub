@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#181b24" />
+    <meta name="description" content="TBDub — Production-Oriented Visual Dubbing" />
+    <title>TBDub — Project Page</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Inter:wght@400;500;600;700;800&amp;family=Noto+Sans+SC:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="project-logo" href="#top" aria-label="回到顶部">
+        <span class="logo-orbit"><i></i></span>
+        <span data-project-short>TBDub</span>
+      </a>
+      <nav aria-label="页面导航">
+        <a href="#overview">Overview</a>
+        <a href="#demos">Results</a>
+        <a href="#method">Method</a>
+        <a href="#metrics">Evaluation</a>
+        <a href="#efficiency">Efficiency</a>
+      </nav>
+      <div class="topbar-actions">
+        <a class="nav-code" data-link="code" href="#" aria-disabled="true">GitHub ↗</a>
+      </div>
+    </header>
+
+    <main id="top">
+      <section id="overview" class="section overview-section">
+        <div class="page-shell">
+          <div class="overview-project">
+            <div class="hero-status reveal"><i></i><span data-kicker>RESEARCH PROJECT · PREVIEW</span></div>
+            <div class="hero-language-switcher reveal">
+              <div class="language-switcher" role="group" aria-label="Language selection">
+                <button type="button" data-language="zh" aria-pressed="false">中文</button>
+                <button type="button" data-language="en" aria-pressed="true">English</button>
+              </div>
+            </div>
+            <h1 class="reveal delay-1">
+              <span data-project-short>TBDub</span><em>:</em>
+              <small data-title-en>Production-Oriented Visual Dubbing</small>
+            </h1>
+            <p class="hero-title-cn reveal delay-2" data-title-cn>面向生产视觉配音的 X-Dub 任务自适应后训练与少步蒸馏</p>
+
+            <div id="author-list" class="authors reveal delay-2"></div>
+            <div id="author-notes" class="author-notes reveal delay-2"></div>
+            <div class="affiliation reveal delay-2" data-affiliation>Team / Affiliation — to be updated</div>
+
+            <p class="abstract reveal delay-3" data-abstract>
+              TBDub 在继承 X-Dub/Wan 生成主干的基础上，通过面向生产数据的任务自适应后训练与条件 DMD2 蒸馏，获得 30 步 Teacher 和 2 步 Student。
+            </p>
+
+            <div class="hero-actions reveal delay-3">
+              <a class="action primary" href="#demos" data-i18n="watchDemos">▶ 观看演示</a>
+              <a class="action" data-link="paper" href="#" aria-disabled="true">Paper <span>PDF ↗</span></a>
+              <a class="action" data-link="code" href="#" aria-disabled="true">Code <span>GitHub ↗</span></a>
+              <a class="action" data-link="model" href="#" aria-disabled="true">Model <span>HF ↗</span></a>
+            </div>
+          </div>
+
+          <div class="section-heading overview-heading reveal">
+            <div class="section-number">00</div>
+            <div>
+              <p class="section-label">PROJECT OVERVIEW</p>
+              <h2>Overview</h2>
+              <p data-i18n="overviewDescription">项目背景、研究动机与面向实际视觉配音生产的核心优化方向。</p>
+            </div>
+          </div>
+
+          <div class="hero-preview reveal delay-3">
+            <div class="preview-grid">
+              <div class="preview-copy">
+                <span class="preview-index mono">PROJECT PROMISE</span>
+                <h2>Identity-faithful.<br />Temporally stable.<br /><span>Robust &amp; efficient.</span></h2>
+                <p data-i18n="promiseText">从“生成同步嘴型”走向可用于真实内容生产的高保真、长时稳定、复杂场景鲁棒且高效的视觉配音。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="research-summary reveal">
+            <div class="research-summary-head">
+              <span class="mono">RESEARCH SUMMARY · MOTIVATION</span>
+              <h2>Beyond lip alignment:<br /><em>production-ready visual dubbing.</em></h2>
+              <p data-summary-intro>我们聚焦真实内容生产中反复出现的身份漂移、时序不稳定、复杂场景失效和跨域口型精度不足。</p>
+            </div>
+            <div id="research-focus-grid" class="research-focus-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="demos" class="section page-shell">
+        <div class="section-heading reveal">
+          <div class="section-number">01</div>
+          <div>
+            <p class="section-label">DEMOS &amp; QUALITATIVE COMPARISON</p>
+            <h2>Audio-driven video results</h2>
+            <p data-demo-intro>展示不同人物、语言、镜头尺度和动作条件下的唇形驱动结果。后续素材可持续补充。</p>
+          </div>
+        </div>
+
+        <div id="qualitative-results" class="qualitative-results"></div>
+      </section>
+
+      <section id="method" class="section section-tint">
+        <div class="page-shell">
+          <div class="section-heading reveal">
+            <div class="section-number">02</div>
+            <div>
+              <p class="section-label">METHOD</p>
+              <h2 data-method-title>Method</h2>
+              <p data-method-intro>TBDub 继承 X-Dub/Wan 的参考条件视频编辑主干，并以生产后训练与少步蒸馏完成任务适配。</p>
+            </div>
+          </div>
+
+          <div class="method-principle reveal">
+            <div id="method-facts" class="method-facts" aria-label="Method facts"></div>
+          </div>
+
+          <div class="method-figure reveal">
+            <div class="figure-head">
+              <span data-i18n="pipelineLabel">端到端流程</span>
+              <span class="mono" data-i18n="pipelineFlow">参考视频 + 驱动音频 → 配音视频</span>
+            </div>
+            <div class="method-pipeline-graphic" role="region" aria-label="TBDub pipeline">
+              <picture>
+                <source srcset="./figures/tbdub-pipeline.svg" type="image/svg+xml" />
+                <img id="method-pipeline-image" src="./figures/tbdub-pipeline.png" alt="TBDub 方法整体流程图" loading="lazy" decoding="async" />
+              </picture>
+            </div>
+            <p data-i18n="pipelineCaption">完整参考视频通过联合 token 建模提供身份与时空上下文，帧对齐语音只驱动目标分支中的语音相关动态。</p>
+          </div>
+
+          <div class="method-subheading method-subheading-spaced reveal">
+            <span class="mono">TRAINING &amp; DISTILLATION</span>
+            <h3 data-i18n="trainingTitle">Production adaptation and two-step distillation</h3>
+            <p data-i18n="trainingIntro">训练策略围绕“必须响应音频、重点优化口部、适应真实生产缺陷、降低推理成本”四个目标展开。</p>
+          </div>
+          <div id="method-details" class="method-details reveal"></div>
+        </div>
+      </section>
+
+      <section id="metrics" class="section metrics-section">
+        <div class="page-shell">
+          <div class="section-heading reveal">
+            <div class="section-number">03</div>
+            <div>
+              <p class="section-label">QUANTITATIVE RESULTS</p>
+              <h2>Evaluation</h2>
+              <p data-i18n="evaluationIntro">在 38 个样本上评估口部重建质量、分布真实感、身份保持、口部响应幅度与音画同步。不同指标描述不同性质，需结合视频 Demo 联合解读。</p>
+            </div>
+          </div>
+          <aside id="evaluation-limitation" class="evaluation-limitation reveal"></aside>
+          <div id="metric-cards" class="metric-cards reveal"></div>
+          <div id="metric-notes" class="metric-notes reveal"></div>
+          <div class="metric-legend reveal" aria-label="指标方向说明">
+            <span><b>↑</b> Higher is better</span>
+            <span><b>↓</b> Lower is better</span>
+            <span><b>↔</b> Edit magnitude only</span>
+            <span><b>GT</b> LSE reference only</span>
+          </div>
+          <div id="quantitative-table" class="quantitative-table-wrap reveal"></div>
+          <div id="subjective-results" class="subjective-results reveal"></div>
+        </div>
+      </section>
+
+      <section id="efficiency" class="section efficiency-section section-tint">
+        <div class="page-shell">
+          <div class="section-heading reveal">
+            <div class="section-number">04</div>
+            <div>
+              <p class="section-label">INFERENCE EFFICIENCY</p>
+              <h2 data-i18n="efficiencyTitle">Efficiency</h2>
+              <p data-i18n="efficiencyIntro">两步 Student 在显著降低 DiT 计算量的同时，基本保持 Teacher 的生成质量与音画同步。</p>
+            </div>
+          </div>
+          <div id="efficiency-summary" class="metric-cards reveal"></div>
+          <div id="efficiency-tables" class="efficiency-tables reveal"></div>
+          <aside id="efficiency-scope" class="efficiency-scope reveal"></aside>
+        </div>
+      </section>
+
+      <section id="citation" class="section page-shell citation-section">
+        <div class="section-heading reveal">
+          <div class="section-number">05</div>
+          <div>
+            <p class="section-label">CITATION</p>
+            <h2>BibTeX</h2>
+            <p data-i18n="citationDescription">论文发布后替换引用信息。</p>
+          </div>
+        </div>
+        <div class="citation-box reveal">
+          <pre id="citation-code"></pre>
+          <button id="copy-citation" type="button">Copy</button>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="page-shell footer-inner">
+        <a class="project-logo" href="#top"><span class="logo-orbit"><i></i></span><span data-project-short>TBDub</span></a>
+        <p data-i18n="footerText">研究项目页面 · 基于 GitHub Pages</p>
+        <a href="#top" data-i18n="backToTop">返回顶部 ↑</a>
+      </div>
+    </footer>
+
+    <script src="./content.js"></script>
+    <script src="./i18n.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
