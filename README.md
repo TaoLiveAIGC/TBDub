@@ -62,7 +62,27 @@ dwpose_tools/models/
 
 
 
-Download the released TBDub model weights from [TaoLiveAIGC/TBDub on Hugging Face](https://huggingface.co/TaoLiveAIGC/TBDub), then place the files under `checkpoints/` following the layout above. The remaining auxiliary checkpoints can be downloaded from [KlingTeam/X-Dub on Hugging Face](https://huggingface.co/KlingTeam/X-Dub).
+Download the configuration manifest together with the model variant you plan to use.
+
+Teacher (30 steps):
+
+```bash
+hf download TaoLiveAIGC/TBDub \
+  config.json null_prompt_emb.pt \
+  tbdub_base.safetensors tbdub_finetune.safetensors \
+  --local-dir checkpoints
+```
+
+Student (2 steps):
+
+```bash
+hf download TaoLiveAIGC/TBDub \
+  config.json null_prompt_emb.pt \
+  tbdub_base.safetensors tbdub_student.safetensors \
+  --local-dir checkpoints
+```
+
+The versioned `config.json` records the runtime layout and is the model-level query file Hugging Face uses for download statistics. The remaining auxiliary checkpoints can be downloaded from [KlingTeam/X-Dub on Hugging Face](https://huggingface.co/KlingTeam/X-Dub).
 
 ## Quick start
 
@@ -124,7 +144,6 @@ Run `python inference.py --help` for checkpoint-path and sampling options.
 Only load preprocessing cache files that you created or trust, because Python pickle files can execute code while loading.
 
 ## Repository structure
-
 
 
 
