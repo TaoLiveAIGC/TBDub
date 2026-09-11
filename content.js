@@ -58,8 +58,10 @@ window.PROJECT_DATA = {
     authorNote: "* 共同一作　† 通讯作者",
     links: {
       paper: "https://arxiv.org/abs/2609.06144",
+      project: "https://taoliveaigc.github.io/TBDub/",
       code: "https://github.com/TaoLiveAIGC/TBDub",
       model: "https://huggingface.co/TaoLiveAIGC/TBDub",
+      license: "https://www.apache.org/licenses/LICENSE-2.0",
     },
   },
 
@@ -762,11 +764,14 @@ window.PROJECT_DATA = {
     scope: "测试使用单张 NVIDIA H20、512×512 输入。计时边界从第一次 VAE 编码开始，到最终 VAE 解码结束；不包含模型加载、HuBERT 音频编码、人脸检测与裁剪、颜色校正、贴回、视频编码和文件写入，因此这里报告的是 VAE-to-VAE 核心生成吞吐，而非完整应用端到端速度。",
   },
 
-  citation: `@article{tbdub2026,
-  title   = {TBDub: Production-Oriented Visual Dubbing},
-  author  = {Bihan Li and Xinyang Li and Zeran Xu and Meiguang Jin and Junfeng Ma},
-  journal = {arXiv preprint},
-  year    = {2026}
+  citation: `@misc{li2026tbdubproductionorientedvisualdubbing,
+  title={TBDub: Production-Oriented Visual Dubbing},
+  author={Bihan Li and Xinyang Li and Zeran Xu and Meiguang Jin and Junfeng Ma},
+  year={2026},
+  eprint={2609.06144},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2609.06144},
 }`,
 };
 
