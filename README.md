@@ -3,9 +3,11 @@
   <p><strong>Bihan Li<sup>*</sup>, Xinyang Li<sup>*</sup>, Zeran Xu, Meiguang Jin<sup>†</sup>, Junfeng Ma</strong></p>
   <p>Taobao &amp; Tmall Group, Alibaba Group</p>
   <p>
-    <a href="https://arxiv.org/abs/2609.06144"><img src="https://img.shields.io/badge/Technical-Report-red" alt="Technical Report"></a>
+    <a href="https://arxiv.org/abs/2609.06144"><img src="https://img.shields.io/badge/arXiv-Paper-red.svg" alt="arXiv Paper"></a>
     <a href="https://taoliveaigc.github.io/TBDub/"><img src="https://img.shields.io/badge/Project-Page-blue" alt="Project Page"></a>
+    <a href="https://github.com/TaoLiveAIGC/TBDub"><img src="https://img.shields.io/badge/GitHub-Code-181717?logo=github" alt="GitHub"></a>
     <a href="https://huggingface.co/TaoLiveAIGC/TBDub"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Model-yellow" alt="Hugging Face"></a>
+    <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache--2.0-yellow" alt="License: Apache-2.0"></a>
   </p>
 </div>
 
@@ -143,22 +145,20 @@ Run `python inference.py --help` for checkpoint-path and sampling options.
 
 Only load preprocessing cache files that you created or trust, because Python pickle files can execute code while loading.
 
-## Repository structure
+## Citation
 
+```bibtex
+@misc{li2026tbdubproductionorientedvisualdubbing,
+  title={TBDub: Production-Oriented Visual Dubbing},
+  author={Bihan Li and Xinyang Li and Zeran Xu and Meiguang Jin and Junfeng Ma},
+  year={2026},
+  eprint={2609.06144},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2609.06144},
+}
+```
 
+## License
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+The code and released model weights are available under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). Third-party dependencies and checkpoints remain subject to their respective licenses.

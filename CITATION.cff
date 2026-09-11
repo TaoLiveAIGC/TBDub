@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: "If you use TBDub, please cite the arXiv paper."
+title: "TBDub: Production-Oriented Visual Dubbing"
+type: software
+authors:
+  - family-names: Li
+    given-names: Bihan
+  - family-names: Li
+    given-names: Xinyang
+  - family-names: Xu
+    given-names: Zeran
+  - family-names: Jin
+    given-names: Meiguang
+  - family-names: Ma
+    given-names: Junfeng
+date-released: 2026-09-05
+license: Apache-2.0
+repository-code: "https://github.com/TaoLiveAIGC/TBDub"
+url: "https://taoliveaigc.github.io/TBDub/"
+preferred-citation:
+  type: article
+  title: "TBDub: Production-Oriented Visual Dubbing"
+  authors:
+    - family-names: Li
+      given-names: Bihan
+    - family-names: Li
+      given-names: Xinyang
+    - family-names: Xu
+      given-names: Zeran
+    - family-names: Jin
+      given-names: Meiguang
+    - family-names: Ma
+      given-names: Junfeng
+  year: 2026
+  journal: "arXiv preprint arXiv:2609.06144"
+  identifiers:
+    - type: other
+      value: "arXiv:2609.06144"
+      description: arXiv identifier
+  url: "https://arxiv.org/abs/2609.06144"
