@@ -3,6 +3,7 @@
   <p><strong>Bihan Li<sup>*</sup>, Xinyang Li<sup>*</sup>, Zeran Xu, Meiguang Jin<sup>†</sup>, Junfeng Ma</strong></p>
   <p>Taobao &amp; Tmall Group, Alibaba Group</p>
   <p>
+    <a href="https://arxiv.org/abs/2609.06144"><img src="https://img.shields.io/badge/Technical-Report-red" alt="Technical Report"></a>
     <a href="https://taoliveaigc.github.io/TBDub/"><img src="https://img.shields.io/badge/Project-Page-blue" alt="Project Page"></a>
     <a href="https://huggingface.co/TaoLiveAIGC/TBDub"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Model-yellow" alt="Hugging Face"></a>
   </p>
