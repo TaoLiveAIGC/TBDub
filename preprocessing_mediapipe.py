@@ -182,7 +182,7 @@ def _preprocess_video_in_process(video_path, model_path, report_path=None):
         report["missing_frames"] = [i for i, item in enumerate(landmarks) if item is None]
         points, interpolated = fill_short_gaps(landmarks, max_gap_frames=max(1, round(fps * 0.4)))
         width, height = frames[0].size
-        boxes = build_face_bbox_from_landmarks(points, width, height, add_forehead=False)
+        boxes = build_face_bbox_from_landmarks(points, width, height)
         boxes, case_flag = process_bbox(boxes, width, height, force_fix=False)
         report.update(success=True, interpolated_frames=interpolated, crop_mode=case_flag,
                       bboxes=boxes, landmark_count=points.shape[1],

@@ -19,7 +19,7 @@ authors = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["diffsynth*", "dwpose_tools*"]
+include = ["diffsynth*"]
 
 [tool.ruff]
 line-length = 120

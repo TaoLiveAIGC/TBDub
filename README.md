@@ -20,16 +20,13 @@ Give an existing video a new voice. TBDub synchronizes the speaker's lips with n
 
 ## What's new in V1.1
 
-V1.1 updates inference and deployment; Teacher and Student use the same trained
-parameters as V1.0. [Full changelog and migration notes](CHANGELOG.md) ·
-[Project update](https://taoliveaigc.github.io/TBDub/#v1-1).
+V1.1 makes the existing Teacher and Student easier to deploy:
 
-- **Simpler installation:** MediaPipe 0.10.21 is the default face preprocessing backend. No MMCV or other OpenMMLab packages are needed for the default workflow.
-- **Smaller downloads:** one complete BF16 checkpoint per model, about **12.59 GB** each. Student needs no Base file; Teacher needs no separate Base/Fine-tune merge. The unused T5 encoder and tokenizer are no longer loaded or downloaded.
-- **Lower GPU memory with `--cpu-offload`:** measured process peaks of **15.01 GiB for Student** and **19.49 GiB for Teacher**, compared with 27.93/27.95 GiB in the same configuration with weights kept on the GPU. See [hardware, timing, and measurement scope](#lower-gpu-memory-usage).
+- **One installation:** `requirements.txt` includes the validated MediaPipe 0.10.21 face preprocessing setup.
+- **Compact models:** download one complete BF16 DiT checkpoint, about **12.59 GB**, for the variant you want. Including shared auxiliary model files, a single variant needs about **15.27 GB** in total.
+- **Optional lower GPU memory:** add `--cpu-offload` when GPU memory is limited. Measured process peaks with this option were **15.01 GiB for Student** and **19.49 GiB for Teacher** on the workload described below.
 
-The memory comparison isolates CPU offload within V1.1; it is not a complete
-V1.0-versus-V1.1 benchmark. DWPose remains an [optional compatibility backend](docs/dwpose.md).
+[Full V1.1 changelog](CHANGELOG.md) · [Project update](https://taoliveaigc.github.io/TBDub/#v1-1)
 
 ## Why TBDub?
 
@@ -56,64 +53,51 @@ For an already aligned `512 x 512` face video, pass `--cropped-input` to skip st
 
 - Linux with an NVIDIA GPU
 - Python 3.10 (validated environment)
-- CUDA-compatible PyTorch
+- CUDA-compatible PyTorch and torchvision
 - `ffmpeg` available on `PATH`
 
-Create an environment and install PyTorch for your CUDA version first. Then install the remaining packages:
+Clone the repository and create a fresh environment:
 
 ```bash
+git clone https://github.com/TaoLiveAIGC/TBDub.git
+cd TBDub
+python3.10 -m venv .venv
+source .venv/bin/activate
+```
+
+Install PyTorch for your CUDA environment, then the single dependency file.
+The validated stack uses PyTorch 2.9.0 and torchvision 0.24.0 with CUDA 12.8:
+
+```bash
+python -m pip install torch==2.9.0 torchvision==0.24.0 --index-url https://download.pytorch.org/whl/cu128
 python -m pip install -r requirements.txt
 ```
 
-The V1.1 default uses MediaPipe **0.10.21**, `protobuf==4.25.8`, and CPU JAX
-packages. It requires no MMCV, MMEngine, MMDetection, or MMPose. Use the pinned
-`opencv-contrib-python` package; do not also install `opencv-python`, since both
-provide `cv2`. `requirements-mediapipe.txt` remains an alias for this environment.
-
-The validated GPU software stack is PyTorch 2.9.0+cu128 with torchvision 0.24.0.
-For the previous preprocessing backend, use the separate
-[optional DWPose installation](docs/dwpose.md).
+Keep the pinned MediaPipe, Protobuf, CPU JAX, and `opencv-contrib-python`
+versions from this file. Install only that OpenCV package in this environment.
 
 ## Checkpoints
 
-Place the following files under `checkpoints/`, or provide their paths through the corresponding command-line options:
+Choose **one** model variant. Each uses a single complete BF16 DiT file; you do
+not need the other variant or any additional DiT checkpoint.
 
-```text
-checkpoints/
-├── tbdub_teacher.safetensors       # standalone BF16 Teacher
-├── tbdub_student.safetensors       # standalone BF16 Student; no Base needed
-├── Wan2.2_VAE.safetensors
-├── null_prompt_emb.pt
-├── hubert-large-ll60k/
-└── face_landmarker.task            # default MediaPipe preprocessing
-```
-
-
-Download the configuration manifest together with **one** model variant you plan
-to use; both DiT files are not needed for a single variant.
-
-Teacher (30 steps):
+Student (two steps):
 
 ```bash
 hf download TaoLiveAIGC/TBDub \
-  config.json null_prompt_emb.pt \
-  tbdub_teacher.safetensors \
+  config.json null_prompt_emb.pt tbdub_student.safetensors \
   --local-dir checkpoints
 ```
 
-Student (2 steps):
+Or Teacher (30 steps):
 
 ```bash
 hf download TaoLiveAIGC/TBDub \
-  config.json null_prompt_emb.pt \
-  tbdub_student.safetensors \
+  config.json null_prompt_emb.pt tbdub_teacher.safetensors \
   --local-dir checkpoints
 ```
 
-The versioned `config.json` records the runtime layout and is the model-level query file Hugging Face uses for download statistics.
-
-Both variants also need the VAE from [KlingTeam/X-Dub](https://huggingface.co/KlingTeam/X-Dub)
-and the audio encoder from [facebook/hubert-large-ll60k](https://huggingface.co/facebook/hubert-large-ll60k):
+Both variants also need the shared VAE and HuBERT files:
 
 ```bash
 hf download KlingTeam/X-Dub Wan2.2_VAE.safetensors --local-dir checkpoints
@@ -122,8 +106,8 @@ hf download facebook/hubert-large-ll60k \
   --local-dir checkpoints/hubert-large-ll60k
 ```
 
-Download the [Face Landmarker model bundle](https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task)
-for default face preprocessing (3,758,596 bytes):
+For face detection and landmarks, download the Face Landmarker bundle
+(3,758,596 bytes). The face detector is already included in MediaPipe:
 
 ```bash
 mkdir -p checkpoints
@@ -132,71 +116,36 @@ curl -fL https://storage.googleapis.com/mediapipe-models/face_landmarker/face_la
 echo '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff  checkpoints/face_landmarker.task' | sha256sum -c -
 ```
 
-MediaPipe includes the face detector; no separate detector or DWPose weight
-download is needed. Already aligned inputs using `--cropped-input` can skip
-the Face Landmarker download.
+For example, a complete Student setup contains:
 
-Both Teacher and Student use the precomputed context in `null_prompt_emb.pt`.
-This file is required even though the prompt is empty; its contents are not an
-all-zero tensor. Inference does not load a T5 text encoder or tokenizer, so do not
-download `models_t5_umt5-xxl-enc-bf16.safetensors` or `umt5-xxl/` for this code.
-The former `--text-encoder-checkpoint` and `--tokenizer-path` options have been
-removed. Direct pipeline callers must supply `prompt_emb`; `from_pretrained`
-no longer accepts `tokenizer_config`. The DiT's context projection and attention
-weights remain required. Transformers is still used by HuBERT.
+```text
+checkpoints/
+├── config.json
+├── tbdub_student.safetensors
+├── Wan2.2_VAE.safetensors
+├── null_prompt_emb.pt
+├── face_landmarker.task
+└── hubert-large-ll60k/
+    ├── config.json
+    ├── preprocessor_config.json
+    └── pytorch_model.bin
+```
+
+For Teacher, replace the Student DiT file with `tbdub_teacher.safetensors`.
+The selected DiT plus all shared model files totals about **15.27 GB** (decimal
+GB), excluding Python packages. Use the individual download lists above to
+avoid downloading both variants. Keep `null_prompt_emb.pt`: it supplies the
+fixed context used by both models. Already aligned inputs with `--cropped-input`
+can skip the Face Landmarker download.
 
 ## Quick start
 
-```bash
-bash infer.sh path/to/source.mp4 path/to/driving.wav results
-```
-
-Equivalent Python command:
+Student, with two-step generation and latent motion:
 
 ```bash
 python inference.py \
   --video path/to/source.mp4 \
   --audio path/to/driving.wav \
-  --dit-checkpoint checkpoints/tbdub_teacher.safetensors \
-  --preprocess-backend mediapipe \
-  --mediapipe-model checkpoints/face_landmarker.task \
-  --ref-cfg-scale 2.0 \
-  --audio-cfg-scale 6.0 \
-  --num-inference-steps 30 \
-  --seed 42 \
-  --output-dir results
-```
-
-Teacher and Student each use one complete BF16 DiT checkpoint. The Teacher file
-contains the same 877 tensors from the former fine-tuned file and 368 tensors
-from Base, combined using the original last-file-wins loading rule. Users no
-longer need to download or combine Base and Fine-tune. Its size is about 12.59 GB,
-compared with 22.87 GB for the former two-file Teacher download.
-
-Older Base + Fine-tune files remain usable through explicit `--dit-checkpoint`
-paths in that order. To consolidate an existing local pair without overwriting it:
-
-```bash
-python scripts/merge_teacher.py \
-  checkpoints/tbdub_base.safetensors \
-  checkpoints/tbdub_finetune.safetensors \
-  checkpoints/tbdub_teacher.safetensors \
-  --report teacher_merge.json
-```
-
-The CPU exporter validates the model signature and verifies every saved tensor
-against the original runtime merge. It requires host memory for a complete model
-and serialization buffers. This is a storage/layout change, not model retraining.
-
-### Distilled Student inference
-
-A compatible DMD2 Student checkpoint can run with two denoising steps and no classifier-free guidance:
-
-```bash
-python inference.py \
-  --video path/to/source.mp4 \
-  --audio path/to/driving.wav \
-  --dit-checkpoint checkpoints/tbdub_student.safetensors \
   --inference-mode student \
   --num-student-steps 2 \
   --sigma-shift 1.0 \
@@ -205,126 +154,101 @@ python inference.py \
   --output-dir results
 ```
 
-The Student checkpoint contains the entire DiT; it is not an overlay and does
-not require `tbdub_base.safetensors`. The BF16 inference file is about 12.59 GB,
-compared with 37.77 GB for the former Base + mostly-FP32 Student download.
-VAE, HuBERT, `null_prompt_emb.pt`, and the selected preprocessing models are
-still required. Specify individual files in `hf download` as shown above to
-avoid downloading Teacher weights.
-
-With `--inference-mode student`, omitting `--dit-checkpoint` also defaults to
-the single `checkpoints/tbdub_student.safetensors` file. Existing FP32 Student
-files still work alone; inference casts them to BF16. Student mode uses
-single-branch denoising and first-clip temporal padding by default. The checkpoint
-must be distilled for the same two-step schedule, sigma shift, HuBERT conditioning,
-and 77-frame temporal layout.
-
-To export an existing original Student file without overwriting it:
+Teacher:
 
 ```bash
-python scripts/convert_student_bf16.py \
-  checkpoints/tbdub_student.safetensors \
-  checkpoints/tbdub_student_bf16.safetensors \
-  --report student_conversion.json
+bash infer.sh path/to/source.mp4 path/to/driving.wav results
 ```
 
-The CPU exporter checks the complete model signature, retains all parameter
-names and shapes, verifies every saved tensor against the source cast to BF16,
-and records a SHA-256 checksum. It needs enough host memory for the complete
-BF16 model and serialization buffers. This reduces download and storage size;
-the inference model was already BF16, so its resident GPU memory does not halve.
+Equivalent Teacher Python command:
 
-Useful options:
+```bash
+python inference.py \
+  --video path/to/source.mp4 \
+  --audio path/to/driving.wav \
+  --inference-mode teacher \
+  --ref-cfg-scale 2.0 \
+  --audio-cfg-scale 6.0 \
+  --num-inference-steps 30 \
+  --seed 42 \
+  --output-dir results
+```
 
-- `--cpu-offload`: keep inactive DiT/VAE weights in system memory and move HuBERT to the GPU only while extracting audio features.
-- `--cropped-input`: the source is already an aligned face video.
-- `--motion-from-latents`: pass the previous segment's tail latents to the next segment.
-- `--per-chunk-audio`: extract HuBERT features separately for each segment.
-- `--preprocess-cache cache/sample.pkl`: reuse face crops and bounding boxes.
-- `--save-comparison`: additionally save side-by-side diagnostic videos.
-- `--preprocess-only`: run face preprocessing without loading TBDub checkpoints.
-- `--no-student-first-clip-padding`: disable the default five-frame Student pre-roll.
-
-Run `python inference.py --help` for checkpoint-path and sampling options.
-
-Only load preprocessing cache files that you created or trust, because Python pickle files can execute code while loading.
+These commands select the matching DiT checkpoint automatically and use MediaPipe
+for full-frame videos. Models remain on the GPU by default for faster inference.
+If a run fails because GPU memory is insufficient, add `--cpu-offload` to the
+Python command or `infer.sh` command and run again. Memory mode is selected manually; the program
+does not automatically detect available memory or switch modes after an error.
 
 ### Lower GPU memory usage
 
-Add `--cpu-offload` to either the Teacher or Student Python command when GPU
-memory is limited. DiT and VAE weights move between CPU memory and the GPU at
-stage boundaries; the active DiT remains on the GPU throughout denoising.
-HuBERT runs on the same GPU in FP32 for feature extraction and returns to CPU
-memory afterward. DiT/VAE computation stays BF16, with the same resolution,
-sampling steps, and motion handling.
+With `--cpu-offload`, DiT and VAE weights move between CPU memory and the GPU at stage
+boundaries. The active DiT stays on the GPU throughout denoising. HuBERT runs
+on the GPU in FP32 for feature extraction, then returns to CPU memory.
+DiT/VAE computation stays BF16.
 
-This mode uses more system memory and adds CPU/GPU transfer time. Keep enough
-RAM available for the full weights and video buffers. Without this option,
-models remain on the GPU as before. The option does not change the checkpoint
-files or require additional downloads.
+This saves GPU memory while using more system RAM and CPU/GPU transfer time.
+Omit the option to use the default GPU-resident mode.
 
-Measured on one RTX PRO 5000 72GB with a 22 GiB PyTorch allocator limit for
-CPU-offload mode: 512×512, 15.04-second audio, 376 output frames; Teacher 30
-steps with reference/audio CFG 2.5/10, Student two steps with latent motion.
-The table reports `nvidia-smi` process memory, including CUDA overhead. Both
-columns use the same V1.1 configuration and differ only in CPU offload; they
-are not labeled as V1.0 and V1.1 performance.
+For example, rerun Teacher with:
 
-| Model | GPU-resident process peak | CPU-offload process peak |
+```bash
+bash infer.sh path/to/source.mp4 path/to/driving.wav results --cpu-offload
+```
+
+Measured on one RTX PRO 5000 72GB: 512×512, 15.04-second audio, 376 output
+frames; Teacher 30 steps with reference/audio CFG 2.5/10, Student two steps
+with latent motion. The table reports sampled `nvidia-smi` process peaks,
+including CUDA overhead. Both columns use the same V1.1 models.
+
+| Model | Default GPU-resident mode | With `--cpu-offload` |
 |---|---:|---:|
 | Teacher | 27.95 GiB | 19.49 GiB |
 | Student | 27.93 GiB | 15.01 GiB |
 
-Both outputs were frame- and audio-identical to their GPU-resident baselines.
+Both offload runs completed under a 22 GiB PyTorch allocator limit. Their
+376 decoded video frames and audio matched the respective resident-mode
+outputs exactly. These are workstation measurements, separate from the
+paper's H20 speed benchmark; they are not an RTX 4090 hardware test.
+
 Host-process RSS peaked at 21.9 GiB for Teacher and 21.3 GiB for Student;
-the operating system and other applications need additional RAM. In these
-single-pass measurements, inference plus output time changed from
-563.6 to 595.3 seconds for Teacher and
-63.1 to 82.1 seconds for Student. These are
-measurements on the stated workstation, not an RTX 4090 benchmark.
+the system and other applications need additional RAM. In single cold runs,
+inference plus output time changed from 563.6 to 595.3 seconds for Teacher
+and 63.1 to 82.1 seconds for Student. These timings exclude preprocessing,
+model loading, and process startup.
 
 Teacher and Student have the same parameter count and BF16 weight size.
 Teacher evaluates three CFG branches together, sharing weights but producing
-more intermediate activations; Student evaluates one conditioned branch.
-The overall peak also depends on the dominant stage: in this test, without CPU offload,
-the final VAE decode made their peaks almost equal. Longer videos may require
-more memory because the final VAE decode still spans the assembled sequence.
+more intermediate tensors and workspaces; Student evaluates one branch.
+In this test, final VAE decoding dominated both resident-mode peaks, whereas
+DiT denoising dominated with CPU offload. Longer inputs can still require
+more memory because final VAE decoding spans the assembled sequence.
 
 ### Face preprocessing
 
-MediaPipe is the default in both `inference.py` and `infer.sh`. It runs the official
-`mp.solutions.face_detection.FaceDetection(model_selection=1)` full-range sparse
-detector, crops the detected face, and then runs the official Face Landmarker
-task on CPU. Preprocessing runs in a separate CPU process to isolate its native
-libraries from PyTorch. For detection diagnostics, add:
+MediaPipe detects the face, crops the detected region, and extracts landmarks
+with Face Landmarker in a separate CPU process. It selects the highest-scoring
+face per frame and is intended for single-person footage. Short detection gaps
+(up to 0.4 seconds) are interpolated; longer gaps raise an error. To save
+per-frame diagnostics, add `--preprocess-report results/face_detection.json`.
 
-```bash
---preprocess-report results/face_detection.json
-```
+The pinned 0.10.21 version has been validated with the included full-range
+face detector and CPU landmark task. Keep the versions in `requirements.txt`
+when reproducing these results.
 
-Use `--mediapipe-model` to override the default `checkpoints/face_landmarker.task`
-path. `infer.sh` also uses this file from `TBDUB_CHECKPOINT_DIR` when that variable
-is set. The [optional DWPose backend](docs/dwpose.md) requires explicit
-`--preprocess-backend dwpose` and its own dependencies and weights.
+### Useful options
 
-The 0.10.21 pin is deliberate: MediaPipe 1.0.1 intermittently crashed during
-native graph initialization in our Linux environment, including in a minimal
-process without PyTorch. Process isolation alone did not resolve it. The pinned
-release uses compatible `protobuf==4.25.8` and the CPU JAX dependencies listed
-in `requirements.txt`. Its Tasks FaceDetector assumes short-range model output
-dimensions, which is why full-range detection uses the official solution API.
+- `--cpu-offload`: reduce GPU memory usage by moving inactive models to system RAM.
+- `--cropped-input`: use an already aligned face video and skip preprocessing and paste-back.
+- `--preprocess-cache cache/sample.pkl`: reuse face crops and bounding boxes.
+- `--preprocess-only`: preview face preprocessing without loading the generative models.
+- `--mediapipe-model path/to/face_landmarker.task`: override the landmark model path.
+- `--save-comparison`: save an additional comparison video.
+- `--per-chunk-audio`: extract HuBERT features separately for each segment.
 
-No separate detector download is required: MediaPipe 0.10.21 includes it.
-The former `--mediapipe-detector-model` option has been removed; regenerate old
-MediaPipe preprocessing caches after upgrading this code. The backend selects the
-highest-scoring face in each frame and is intended for single-person footage.
-It expands each detection by 1.5 for the landmark task, then constructs the final
-face crop with the existing 1.45 padding
-factor and smoothing policy, and preserves the crop/paste-back interface. Brief
-missing detections (up to 0.4 seconds) are interpolated and listed in the report;
-long gaps or a completely missing face raise an error. Use separate preprocessing
-caches for each backend. Model landmarks differ between backends, so compare the
-resulting crops and generated videos when migrating existing footage from V1.0.
+Run `python inference.py --help` for checkpoint and sampling options. Only load
+preprocessing caches you created or trust, because they use Python pickle.
+When a cache format is incompatible, regenerate it with the current version.
 
 ## Citation
 

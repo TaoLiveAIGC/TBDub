@@ -1,8 +1,7 @@
 """Command-line inference for TBDub.
 
 The script keeps only the public single-video inference path. It supports both
-full-frame input (MediaPipe crop + paste-back by default) and already cropped
-512x512 input. DWPose remains available as an optional preprocessing backend.
+full-frame input (MediaPipe crop + paste-back) and already cropped 512x512 input.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from PIL import Image
 
 from diffsynth.core import ModelConfig
 from diffsynth.pipelines.tbdub import TBDubPipeline
-from preprocessing import HEIGHT, WIDTH, frames_bgr_to_pil_from_video, preprocess_video_with_dwpose
+from preprocessing import HEIGHT, WIDTH, frames_bgr_to_pil_from_video
 from video_utils import (
     blend_crop_video_with_ref,
     color_correction_lab,
@@ -41,6 +40,7 @@ DEFAULT_DIT_CHECKPOINTS = [
 CLIP_NUM_FRAMES = 77
 MOTION_NUM_FRAMES = 5
 MOTION_LATENT_NUM_FRAMES = 2
+PREPROCESS_REVISION = "full_range_sparse_mp01021_v2"
 
 
 VRAM_CONFIG = {
@@ -71,20 +71,12 @@ def require_paths(paths: list[str | Path]) -> None:
 
 
 def preprocess_inputs(video_path: str, audio_path: str, args: argparse.Namespace) -> PreprocessedSample:
-    sample_name = args.sample_name or Path(video_path).stem
-    if args.preprocess_backend == "mediapipe":
-        from preprocessing_mediapipe import preprocess_video_with_mediapipe
+    from preprocessing_mediapipe import preprocess_video_with_mediapipe
 
-        raw_video, reference_video, bboxes, case_flag = preprocess_video_with_mediapipe(
-            video_path, model_path=args.mediapipe_model,
-            report_path=args.preprocess_report,
-        )
-    else:
-        raw_video, reference_video, bboxes, case_flag = preprocess_video_with_dwpose(
-            video_path,
-            device=args.device,
-            model_dir=args.dwpose_model_dir,
-        )
+    raw_video, reference_video, bboxes, case_flag = preprocess_video_with_mediapipe(
+        video_path, model_path=args.mediapipe_model,
+        report_path=args.preprocess_report,
+    )
     print(
         f"[TBDub] preprocessing complete: frames={len(reference_video)}, "
         f"crop_mode={case_flag}, first_bbox={bboxes[0]}"
@@ -365,7 +357,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cuda:0", help="Torch device used for inference.")
     parser.add_argument(
         "--cpu-offload", action="store_true",
-        help="Keep inactive DiT/VAE weights in CPU memory and move HuBERT to the GPU only for feature extraction.",
+        help="Reduce GPU memory by moving inactive model weights to CPU. Disabled by default for faster inference.",
     )
 
     parser.add_argument(
@@ -378,11 +370,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--vae-checkpoint", default=str(DEFAULT_CHECKPOINT_DIR / "Wan2.2_VAE.safetensors"))
     parser.add_argument("--prompt-embedding", default=str(DEFAULT_CHECKPOINT_DIR / "null_prompt_emb.pt"))
     parser.add_argument("--hubert-checkpoint", default=str(DEFAULT_CHECKPOINT_DIR / "hubert-large-ll60k"))
-    parser.add_argument("--dwpose-model-dir", default=str(REPO_ROOT / "dwpose_tools" / "models"))
-    parser.add_argument(
-        "--preprocess-backend", choices=("mediapipe", "dwpose"), default="mediapipe",
-        help="Face preprocessing backend (default: mediapipe). DWPose requires the optional OpenMMLab environment.",
-    )
     parser.add_argument("--mediapipe-model", default=str(DEFAULT_CHECKPOINT_DIR / "face_landmarker.task"))
     parser.add_argument("--preprocess-report", help="Optional JSON report for MediaPipe detection and crop diagnostics.")
 
@@ -471,15 +458,15 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cache_path = Path(args.preprocess_cache) if args.preprocess_cache else None
-    backend_revision = "full_range_sparse_mp01021_v2" if args.preprocess_backend == "mediapipe" else None
     if cache_path and cache_path.exists() and not args.cropped_input:
         with cache_path.open("rb") as file:
             cached = pickle.load(file)
-        cached_backend = cached.get("preprocess_backend", "dwpose")
-        if cached_backend != args.preprocess_backend:
-            raise ValueError(f"Preprocess cache backend {cached_backend!r} does not match {args.preprocess_backend!r}.")
-        if backend_revision and cached.get("preprocess_backend_revision") != backend_revision:
-            raise ValueError("MediaPipe preprocessing changed; regenerate the preprocessing cache.")
+        if (
+            not isinstance(cached, dict)
+            or cached.get("preprocess_backend") != "mediapipe"
+            or cached.get("preprocess_backend_revision") != PREPROCESS_REVISION
+        ):
+            raise ValueError("Unrecognized or outdated preprocessing cache; delete it and run again to regenerate it.")
         sample = PreprocessedSample(
             raw_video=cached["raw_video"],
             reference_video=cached["reference_video"],
@@ -497,8 +484,8 @@ def main() -> None:
             with cache_path.open("wb") as file:
                 pickle.dump(
                     {
-                        "preprocess_backend": args.preprocess_backend,
-                        "preprocess_backend_revision": backend_revision,
+                        "preprocess_backend": "mediapipe",
+                        "preprocess_backend_revision": PREPROCESS_REVISION,
                         "raw_video": sample.raw_video,
                         "reference_video": sample.reference_video,
                         "bboxes": sample.bboxes,

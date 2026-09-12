@@ -1,5 +1,4 @@
 # V1.1 default inference environment with MediaPipe preprocessing.
-# No mmcv, mmengine, mmdet, or mmpose required.
 # Install a CUDA-compatible torch/torchvision build separately.
 diffusers==0.36.0
 transformers==5.1.0

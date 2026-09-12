@@ -1,7 +1,3 @@
-import gc
-from pathlib import Path
-
-import cv2
 import imageio.v2 as imageio
 import numpy as np
 from PIL import Image
@@ -11,44 +7,7 @@ from scipy.signal import savgol_filter
 HEIGHT = 512
 WIDTH = 512
 FPS = 25
-
-DEFAULT_DWPOSE_MODEL_DIR = Path(__file__).resolve().parent / "dwpose_tools" / "models"
-
-FACE_INDEX = [63, 66, 27, 37, 25, 26, 24, 40, 39, 38] + list(range(24, 92)) + [32]
 VERTICAL_BBOX_SHIFT_RATIO = 0.00
-
-_DWPOSE_DETECTOR = None
-_DWPOSE_DEVICE = None
-_DWPOSE_MODEL_DIR = None
-
-
-def get_dwpose_detector(device="cuda:0", model_dir=DEFAULT_DWPOSE_MODEL_DIR):
-    global _DWPOSE_DETECTOR, _DWPOSE_DEVICE, _DWPOSE_MODEL_DIR
-    model_dir = Path(model_dir).expanduser().resolve()
-    paths = {
-        "det_config": model_dir / "yolox_l_8xb8-300e_coco.py",
-        "det_checkpoint": model_dir / "yolox_l_8x8_300e_coco_20211126_140236-d3bd2b23.pth",
-        "pose_config": model_dir / "rtmw-x_8xb320-270e_cocktail14-384x288.py",
-        "pose_checkpoint": model_dir / "rtmw-x_simcc-cocktail14_pt-ucoco_270e-384x288-f840f204_20231122.pth",
-    }
-    missing = [str(path) for path in paths.values() if not path.exists()]
-    if missing:
-        raise FileNotFoundError("Missing DWPose files:\n  - " + "\n  - ".join(missing))
-
-    if _DWPOSE_DETECTOR is None or _DWPOSE_DEVICE != device or _DWPOSE_MODEL_DIR != model_dir:
-        from dwpose_tools.dwpose import DWposeDetector
-
-        _DWPOSE_DETECTOR = DWposeDetector(
-            str(paths["det_config"]),
-            str(paths["det_checkpoint"]),
-            str(paths["pose_config"]),
-            str(paths["pose_checkpoint"]),
-            device=device,
-            type="pth",
-        )
-        _DWPOSE_DEVICE = device
-        _DWPOSE_MODEL_DIR = model_dir
-    return _DWPOSE_DETECTOR
 
 
 def _normalize_window_length(window_length, size, minimum=3):
@@ -66,81 +25,6 @@ def _normalize_window_length(window_length, size, minimum=3):
 def _to_float_scalar(value):
     array = np.asarray(value, dtype=np.float32).reshape(-1)
     return float(array[0])
-
-
-def read_video_frames(video_path):
-    """Read video frames once in BGR format to limit peak memory usage."""
-    reader = imageio.get_reader(video_path)
-    raw_video = []
-    frames_bgr = []
-    try:
-        for frame_rgb in reader:
-            frame_rgb = np.asarray(frame_rgb).astype(np.uint8)
-            # DWPose consumes BGR frames; PIL images are created only when needed.
-            frames_bgr.append(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
-    finally:
-        reader.close()
-    return raw_video, frames_bgr
-
-
-def frames_bgr_to_pil(frames_bgr):
-    """Convert BGR frames to RGB PIL images."""
-    return [Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).convert("RGB") for frame in frames_bgr]
-
-
-def extract_dwpose(frames_bgr, device="cuda:0", model_dir=DEFAULT_DWPOSE_MODEL_DIR):
-    """Extract DWPose landmarks into a preallocated frame-major array."""
-    detector = get_dwpose_detector(device, model_dir)
-    num_frames = len(frames_bgr)
-    
-    # Output shape: (frames, people, keypoints, xy-confidence).
-    kps_results = np.empty((num_frames, 1, 134, 3), dtype=np.float32)
-    
-    for frame_id, frame in enumerate(frames_bgr):
-        height, width = frame.shape[:2]
-        candidate, subset, bbox = detector(image_np_hwc=frame, box_ext=None)
-        candidate = np.asarray(candidate, dtype=np.float32)
-        subset = np.asarray(subset, dtype=np.float32)
-        bbox = np.asarray(bbox, dtype=np.float32)
-        if candidate.shape[0] == 0:
-            raise RuntimeError(f"DWPose did not detect a face in frame {frame_id}.")
-
-        candidate[..., 0] /= float(width)
-        candidate[..., 1] /= float(height)
-        if bbox.size > 0:
-            bbox[..., 0] /= float(width)
-            bbox[..., 1] /= float(height)
-            bbox[..., 2] /= float(width)
-            bbox[..., 3] /= float(height)
-
-        result = candidate[:1]
-        score = subset[:1] / 10.0
-        kps_result = np.concatenate((result, score[..., None]), axis=-1)
-        kps_results[frame_id] = kps_result
-
-    return kps_results  # F, 1, 134, 3
-
-
-def pose_filter(dwpose_np, filter_strength=0.1):
-    num_frames = dwpose_np.shape[0]
-    last_pose_arr = dwpose_np[0].copy()
-    for frame_id in range(num_frames):
-        pose_arr = dwpose_np[frame_id].copy()
-        last_candidate, last_subset = last_pose_arr[:, :, :2], last_pose_arr[:, :, 2]
-        candidate, subset = pose_arr[:, :, :2], pose_arr[:, :, 2]
-
-        candidate_diff = candidate - last_candidate
-        k = filter_strength + ((1 - filter_strength) / (np.exp(3 - np.abs(candidate_diff) * 600) + 1))
-        un_visible = subset < 0.3
-        k[un_visible] = 0.1
-        k[:, 14] = 1
-        k[:, 15] = 1
-
-        candidate = last_candidate + candidate_diff * k
-        pose_arr = np.concatenate((candidate, last_subset[:, :, None] * 0 + subset[:, :, None]), axis=2)
-        dwpose_np[frame_id] = pose_arr
-        last_pose_arr = pose_arr.copy()
-    return dwpose_np
 
 
 def window_smooth(data_list, window_size=5):
@@ -187,11 +71,7 @@ def sg_smooth(points, window_length=5, polyorder=2):
     return smoothed_points
 
 
-def build_face_bbox_from_landmarks(face_ldmk, ori_width, ori_height, num_passes=5, add_forehead=True):
-    def get_forehead(abcd):
-        forehead = (abcd[:, 0] + abcd[:, 1]) / 2 + 1.1 * (((abcd[:, 0] + abcd[:, 1]) / 2) - ((abcd[:, 2] + abcd[:, 3]) / 2))
-        return forehead[:, np.newaxis, :]
-
+def build_face_bbox_from_landmarks(face_ldmk, ori_width, ori_height, num_passes=5):
     num_frames, num_points, _ = face_ldmk.shape
     smoothed_ldmk = face_ldmk.copy()
 
@@ -228,12 +108,8 @@ def build_face_bbox_from_landmarks(face_ldmk, ori_width, ori_height, num_passes=
                 final_smoothed_ldmk[frame_id] = np.mean(smoothed_ldmk[start_idx:end_idx], axis=0)
             smoothed_ldmk = final_smoothed_ldmk
 
-    if add_forehead:
-        forehead = get_forehead(smoothed_ldmk[:, :4, :])
-        final_smoothed_ldmk = np.concatenate([smoothed_ldmk, forehead], axis=1)
-    else:
-        # MediaPipe already includes the forehead in its face mesh.
-        final_smoothed_ldmk = smoothed_ldmk
+    # MediaPipe already includes the forehead in its face mesh.
+    final_smoothed_ldmk = smoothed_ldmk
 
     bbox = []
     for frame_id in range(num_frames):
@@ -535,34 +411,6 @@ def crop_and_resize_frames(raw_video, bbox_list):
         crop = frame.crop((x1, y1, x2, y2))
         ref_video.append(crop.resize((WIDTH, HEIGHT), Image.Resampling.BILINEAR))
     return ref_video
-
-
-def preprocess_video_with_dwpose(video_path, device="cuda:0", model_dir=DEFAULT_DWPOSE_MODEL_DIR):
-    _, frames_bgr = read_video_frames(video_path)
-    if not frames_bgr:
-        raise ValueError(f"The input video contains no readable frames: {video_path}")
-    dwpose_data = extract_dwpose(frames_bgr, device=device, model_dir=model_dir)
-    dwpose_data = pose_filter(dwpose_data)  # shape: (n, 1, 134, 3)
-    
-    ori_height, ori_width = frames_bgr[0].shape[:2]
-    
-    del frames_bgr
-    gc.collect()
-    
-    face_ldmk = dwpose_data[:, 0, FACE_INDEX, :2]   # (379, 79, 2)
-    bbox_list = build_face_bbox_from_landmarks(face_ldmk, ori_width, ori_height, num_passes=5)
-    bbox_list, case_flag = process_bbox(bbox_list, ori_width, ori_height, force_fix=False)  # [[x1,x2,y1,y2], ...]
-    
-    del dwpose_data, face_ldmk
-    gc.collect()
-    
-    # Re-read RGB frames only after landmark extraction to reduce peak memory.
-    raw_video = frames_bgr_to_pil_from_video(video_path)
-    ref_video = crop_and_resize_frames(raw_video, bbox_list)    # [PIL.Image, ...]
-    
-    gc.collect()
-    
-    return raw_video, ref_video, bbox_list, case_flag
 
 
 def frames_bgr_to_pil_from_video(video_path):

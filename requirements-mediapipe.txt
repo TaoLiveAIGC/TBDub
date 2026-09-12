@@ -1,2 +1,0 @@
-# Compatibility alias: MediaPipe is the V1.1 default environment.
--r requirements.txt
