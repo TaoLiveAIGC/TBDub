@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from types import SimpleNamespace
 from pathlib import Path
 
 import cv2
@@ -56,14 +57,14 @@ def crop_detected_face(pixels, box):
     return crop, matrix
 
 
-def preprocess_video_with_mediapipe(video_path, model_path, detector_model_path, report_path=None):
+def preprocess_video_with_mediapipe(video_path, model_path, report_path=None):
     """Isolate MediaPipe native libraries from the PyTorch generation process."""
     started = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix="tbdub-mediapipe-") as temporary:
         worker_report = Path(temporary) / "detection.json"
         command = [sys.executable, "-X", "faulthandler", str(Path(__file__).resolve()),
                    "--worker", "--video", str(video_path), "--model", str(model_path),
-                   "--detector-model", str(detector_model_path), "--report", str(worker_report)]
+                   "--report", str(worker_report)]
         environment = os.environ.copy()
         environment["CUDA_VISIBLE_DEVICES"] = ""
         completed = subprocess.run(command, env=environment, check=False)
@@ -95,14 +96,14 @@ def preprocess_video_with_mediapipe(video_path, model_path, detector_model_path,
     return frames, crops, boxes, report["crop_mode"]
 
 
-def _preprocess_video_in_process(video_path, model_path, detector_model_path, report_path=None):
+def _preprocess_video_in_process(video_path, model_path, report_path=None):
     import mediapipe as mp
     from mediapipe.tasks import python
     from mediapipe.tasks.python import vision
 
     started = time.perf_counter()
     model_path = Path(model_path).expanduser().resolve()
-    detector_model_path = Path(detector_model_path).expanduser().resolve()
+    detector_model_path = Path(mp.__file__).parent / "modules/face_detection/face_detection_full_range_sparse.tflite"
     for path in (model_path, detector_model_path):
         if not path.is_file():
             raise FileNotFoundError(f"Missing MediaPipe model: {path}")
@@ -118,7 +119,7 @@ def _preprocess_video_in_process(video_path, model_path, detector_model_path, re
         return python.BaseOptions(model_asset_path=str(path), delegate=python.BaseOptions.Delegate.CPU)
 
     report = {
-        "backend": "mediapipe_full_range_v1", "version": mp.__version__, "delegate": "CPU",
+        "backend": "mediapipe_full_range_sparse_v2", "version": mp.__version__, "delegate": "CPU",
         "model_path": str(model_path), "detector_model_path": str(detector_model_path),
         "source_fps": fps, "frames": len(frames), "frame_diagnostics": [],
         "confidence_thresholds": {"detection": 0.5, "presence": 0.5, "tracking": 0.5},
@@ -131,21 +132,28 @@ def _preprocess_video_in_process(video_path, model_path, detector_model_path, re
             target.write_text(json.dumps(report, indent=2))
 
     try:
-        # Close the full-frame detector before creating the landmark task.
+        # 0.10.21's Tasks FaceDetector assumes short-range tensor dimensions.
+        # Use its official full-range solution and bundled sparse model instead.
+        # Close the detector before creating the landmark task.
         detection_started = time.perf_counter()
         face_inputs = []
-        detection_options = vision.FaceDetectorOptions(base_options=cpu_options(detector_model_path))
-        with vision.FaceDetector.create_from_options(detection_options) as detector:
+        with mp.solutions.face_detection.FaceDetection(model_selection=1, min_detection_confidence=0.5) as detector:
             for index, frame in enumerate(frames):
                 pixels = np.asarray(frame)
-                result = detector.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=pixels))
-                row = {"frame": index, "detected_faces": len(result.detections), "landmark_faces": 0}
-                if result.detections:
-                    detection = max(result.detections, key=lambda item: item.categories[0].score)
-                    box = detection.bounding_box
+                result = detector.process(pixels)
+                detections = result.detections or []
+                row = {"frame": index, "detected_faces": len(detections), "landmark_faces": 0}
+                if detections:
+                    detection = max(detections, key=lambda item: item.score[0])
+                    relative = detection.location_data.relative_bounding_box
+                    width, height = frame.size
+                    box = SimpleNamespace(
+                        origin_x=int(relative.xmin * width), origin_y=int(relative.ymin * height),
+                        width=int(relative.width * width), height=int(relative.height * height),
+                    )
                     crop, matrix = crop_detected_face(pixels, box)
                     face_inputs.append((crop, matrix))
-                    row.update(detector_score=detection.categories[0].score,
+                    row.update(detector_score=float(detection.score[0]),
                                detection_box=[box.origin_x, box.origin_y, box.width, box.height])
                 else:
                     face_inputs.append(None)
@@ -196,7 +204,6 @@ if __name__ == "__main__":
     parser.add_argument("--worker", action="store_true", required=True)
     parser.add_argument("--video", required=True)
     parser.add_argument("--model", required=True)
-    parser.add_argument("--detector-model", required=True)
     parser.add_argument("--report", required=True)
     options = parser.parse_args()
-    _preprocess_video_in_process(options.video, options.model, options.detector_model, options.report)
+    _preprocess_video_in_process(options.video, options.model, options.report)

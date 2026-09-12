@@ -130,6 +130,10 @@ python inference.py \
 
 For Teacher, the two DiT files are loaded in order: the fine-tuned checkpoint overlays the base checkpoint. The defaults above reproduce the parameter configuration used by the project inference script. Student uses a single complete checkpoint.
 
+The released Teacher fine-tuned file contains 877 tensors; the remaining 368
+come from Base, including context attention, normalization, and text projection
+parameters. These files populate one DiT model, rather than two sequential models.
+
 ### Distilled Student inference
 
 A compatible DMD2 Student checkpoint can run with two denoising steps and no classifier-free guidance:
@@ -192,13 +196,22 @@ Only load preprocessing cache files that you created or trust, because Python pi
 
 MediaPipe preprocessing is available as an alternative to the OpenMMLab path.
 Install `requirements-mediapipe.txt` instead of `requirements.txt`, after installing
-a CUDA-compatible PyTorch/torchvision build. This environment uses MediaPipe 1.0.1
-Tasks (not the legacy `mp.solutions` API). Full-range face detection is followed
-by an explicit crop and the official Face Landmarker task on CPU. Preprocessing
+a CUDA-compatible PyTorch/torchvision build. This environment pins MediaPipe
+0.10.21: the official `mp.solutions.face_detection.FaceDetection(model_selection=1)`
+uses its bundled full-range sparse detector, followed by an explicit crop and
+the official Face Landmarker task on CPU. Preprocessing
 runs in a separate CPU process to isolate MediaPipe native libraries from PyTorch.
 It does not require MMCV, MMEngine, MMDetection, or MMPose. Use only the pinned
 `opencv-contrib-python` package in this environment; do not also install
 `opencv-python`, since both provide `cv2`.
+
+MediaPipe 1.0.1 intermittently crashed during native graph initialization in our
+Linux environment, including in a minimal process without PyTorch. Process
+isolation alone did not resolve it. Use the pinned version and compatible
+`protobuf==4.25.8`; this release also requires the CPU JAX dependencies listed
+in `requirements-mediapipe.txt`. Its Tasks FaceDetector assumes short-range
+model output dimensions, which is why full-range detection uses the official
+solution API instead.
 
 Download the [Face Landmarker model bundle](https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task)
 (3,758,596 bytes):
@@ -208,9 +221,6 @@ mkdir -p checkpoints
 curl -fL https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task \
   -o checkpoints/face_landmarker.task
 echo '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff  checkpoints/face_landmarker.task' | sha256sum -c -
-curl -fL https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/latest/blaze_face_full_range.tflite \
-  -o checkpoints/blaze_face_full_range.tflite
-echo '3698b18f063835bc609069ef052228fbe86d9c9a6dc8dcb7c7c2d69aed2b181b  checkpoints/blaze_face_full_range.tflite' | sha256sum -c -
 ```
 
 Add these arguments to the Student inference command above:
@@ -218,11 +228,12 @@ Add these arguments to the Student inference command above:
 ```bash
 --preprocess-backend mediapipe \
 --mediapipe-model checkpoints/face_landmarker.task \
---mediapipe-detector-model checkpoints/blaze_face_full_range.tflite \
 --preprocess-report results/face_detection.json
 ```
 
-The additional full-range detector is 1,083,786 bytes. The backend selects the
+No separate detector download is required: MediaPipe 0.10.21 includes it.
+The former `--mediapipe-detector-model` option has been removed; regenerate old
+MediaPipe preprocessing caches after upgrading this code. The backend selects the
 highest-scoring face in each frame and is intended for single-person footage.
 It expands each detection by 1.5 for the landmark task, then constructs the final
 Student face crop with the existing 1.45 padding

@@ -12,8 +12,9 @@ Model weights are intentionally excluded from source control. The default infere
 `null_prompt_emb.pt` supplies the precomputed empty-prompt context for both
 Teacher and Student. It must be kept; the T5 encoder checkpoint and `umt5-xxl/`
 tokenizer are no longer loaded or required. For MediaPipe preprocessing, also
-download `face_landmarker.task` and `blaze_face_full_range.tflite` as described in
-the repository README; DWPose weights are only needed for the DWPose backend.
+download `face_landmarker.task` as described in the repository README. The pinned
+MediaPipe 0.10.21 package includes its full-range detector; DWPose weights are
+only needed for the DWPose backend.
 
 Checkpoint state dictionaries are applied from left to right. Teacher inference
 loads the fine-tuned checkpoint after the base checkpoint. Student inference

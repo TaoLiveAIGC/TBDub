@@ -77,7 +77,6 @@ def preprocess_inputs(video_path: str, audio_path: str, args: argparse.Namespace
 
         raw_video, reference_video, bboxes, case_flag = preprocess_video_with_mediapipe(
             video_path, model_path=args.mediapipe_model,
-            detector_model_path=args.mediapipe_detector_model,
             report_path=args.preprocess_report,
         )
     else:
@@ -376,7 +375,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dwpose-model-dir", default=str(REPO_ROOT / "dwpose_tools" / "models"))
     parser.add_argument("--preprocess-backend", choices=("dwpose", "mediapipe"), default="dwpose")
     parser.add_argument("--mediapipe-model", default=str(DEFAULT_CHECKPOINT_DIR / "face_landmarker.task"))
-    parser.add_argument("--mediapipe-detector-model", default=str(DEFAULT_CHECKPOINT_DIR / "blaze_face_full_range.tflite"))
     parser.add_argument("--preprocess-report", help="Optional JSON report for MediaPipe detection and crop diagnostics.")
 
     parser.add_argument("--ref-cfg-scale", "--ref_cfg_scale", dest="ref_cfg_scale", type=float, default=2.0)
@@ -464,7 +462,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cache_path = Path(args.preprocess_cache) if args.preprocess_cache else None
-    backend_revision = "full_range_v1" if args.preprocess_backend == "mediapipe" else None
+    backend_revision = "full_range_sparse_mp01021_v2" if args.preprocess_backend == "mediapipe" else None
     if cache_path and cache_path.exists() and not args.cropped_input:
         with cache_path.open("rb") as file:
             cached = pickle.load(file)
