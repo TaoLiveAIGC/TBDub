@@ -63,7 +63,7 @@ Place the following files under `checkpoints/`, or provide their paths through t
 checkpoints/
 ├── tbdub_base.safetensors
 ├── tbdub_finetune.safetensors
-├── tbdub_student.safetensors       # optional distilled Student
+├── tbdub_student.safetensors       # standalone BF16 Student; no Base needed
 ├── Wan2.2_VAE.safetensors
 ├── null_prompt_emb.pt
 └── hubert-large-ll60k/
@@ -91,7 +91,7 @@ Student (2 steps):
 ```bash
 hf download TaoLiveAIGC/TBDub \
   config.json null_prompt_emb.pt \
-  tbdub_base.safetensors tbdub_student.safetensors \
+  tbdub_student.safetensors \
   --local-dir checkpoints
 ```
 
@@ -128,7 +128,7 @@ python inference.py \
   --output-dir results
 ```
 
-The two DiT files are loaded in order: the fine-tuned checkpoint overlays the base checkpoint. The defaults above reproduce the parameter configuration used by the project inference script. A single consolidated checkpoint can also be supplied with one `--dit-checkpoint` path.
+For Teacher, the two DiT files are loaded in order: the fine-tuned checkpoint overlays the base checkpoint. The defaults above reproduce the parameter configuration used by the project inference script. Student uses a single complete checkpoint.
 
 ### Distilled Student inference
 
@@ -138,9 +138,7 @@ A compatible DMD2 Student checkpoint can run with two denoising steps and no cla
 python inference.py \
   --video path/to/source.mp4 \
   --audio path/to/driving.wav \
-  --dit-checkpoint \
-    checkpoints/tbdub_base.safetensors \
-    checkpoints/tbdub_student.safetensors \
+  --dit-checkpoint checkpoints/tbdub_student.safetensors \
   --inference-mode student \
   --num-student-steps 2 \
   --sigma-shift 1.0 \
@@ -149,7 +147,34 @@ python inference.py \
   --output-dir results
 ```
 
-Checkpoint order matters: the base checkpoint must come first and the Student checkpoint must come last. Student mode uses single-branch denoising and first-clip temporal padding by default. The checkpoint must be distilled for the same two-step schedule, sigma shift, HuBERT conditioning, and 77-frame temporal layout.
+The Student checkpoint contains the entire DiT; it is not an overlay and does
+not require `tbdub_base.safetensors`. The BF16 inference file is about 12.59 GB,
+compared with 37.77 GB for the former Base + mostly-FP32 Student download.
+VAE, HuBERT, `null_prompt_emb.pt`, and the selected preprocessing models are
+still required. Specify individual files in `hf download` as shown above to
+avoid downloading Teacher weights.
+
+With `--inference-mode student`, omitting `--dit-checkpoint` also defaults to
+the single `checkpoints/tbdub_student.safetensors` file. Existing FP32 Student
+files still work alone; inference casts them to BF16. Student mode uses
+single-branch denoising and first-clip temporal padding by default. The checkpoint
+must be distilled for the same two-step schedule, sigma shift, HuBERT conditioning,
+and 77-frame temporal layout.
+
+To export an existing original Student file without overwriting it:
+
+```bash
+python scripts/convert_student_bf16.py \
+  checkpoints/tbdub_student.safetensors \
+  checkpoints/tbdub_student_bf16.safetensors \
+  --report student_conversion.json
+```
+
+The CPU exporter checks the complete model signature, retains all parameter
+names and shapes, verifies every saved tensor against the source cast to BF16,
+and records a SHA-256 checksum. It needs enough host memory for the complete
+BF16 model and serialization buffers. This reduces download and storage size;
+the inference model was already BF16, so its resident GPU memory does not halve.
 
 Useful options:
 

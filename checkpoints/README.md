@@ -2,9 +2,9 @@
 
 Model weights are intentionally excluded from source control. The default inference configuration expects:
 
-- `tbdub_base.safetensors`
-- `tbdub_finetune.safetensors`
-- `tbdub_student.safetensors` (optional DMD2 Student)
+- `tbdub_base.safetensors` (Teacher only)
+- `tbdub_finetune.safetensors` (Teacher only)
+- `tbdub_student.safetensors` (standalone BF16 DMD2 Student; no Base required)
 - `Wan2.2_VAE.safetensors`
 - `null_prompt_emb.pt`
 - `hubert-large-ll60k/`
@@ -15,4 +15,9 @@ tokenizer are no longer loaded or required. For MediaPipe preprocessing, also
 download `face_landmarker.task` and `blaze_face_full_range.tflite` as described in
 the repository README; DWPose weights are only needed for the DWPose backend.
 
-Checkpoint state dictionaries are applied from left to right. Teacher inference normally loads the fine-tuned checkpoint after the base checkpoint. Distilled inference instead loads the compatible Student checkpoint after the base checkpoint so its parameters take precedence. See the repository README and `python inference.py --help` for path overrides and sampling options.
+Checkpoint state dictionaries are applied from left to right. Teacher inference
+loads the fine-tuned checkpoint after the base checkpoint. Student inference
+loads only the complete Student checkpoint (about 12.59 GB in BF16). Original
+FP32 Student files also work alone and are converted to BF16 during loading.
+See the repository README and `python inference.py --help` for path overrides,
+sampling options, and the verified BF16 export script.

@@ -367,8 +367,8 @@ def parse_args() -> argparse.Namespace:
         "--dit-checkpoint", "--ckpt_path",
         dest="dit_checkpoint",
         nargs="+",
-        default=DEFAULT_DIT_CHECKPOINTS,
-        help="DiT checkpoints applied from left to right (base first, fine-tuned overlay last).",
+        default=None,
+        help="DiT checkpoints applied left to right. Defaults: Teacher = base + fine-tuned; Student = student only.",
     )
     parser.add_argument("--vae-checkpoint", default=str(DEFAULT_CHECKPOINT_DIR / "Wan2.2_VAE.safetensors"))
     parser.add_argument("--prompt-embedding", default=str(DEFAULT_CHECKPOINT_DIR / "null_prompt_emb.pt"))
@@ -431,7 +431,14 @@ def parse_args() -> argparse.Namespace:
         "--preprocess-cache", "--preprocess_cache_path", dest="preprocess_cache",
         help="Optional pickle cache for crop frames and bounding boxes.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.dit_checkpoint is None:
+        args.dit_checkpoint = (
+            [str(DEFAULT_CHECKPOINT_DIR / "tbdub_student.safetensors")]
+            if args.inference_mode == "student"
+            else list(DEFAULT_DIT_CHECKPOINTS)
+        )
+    return args
 
 
 def main() -> None:
