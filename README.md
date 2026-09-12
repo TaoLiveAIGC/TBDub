@@ -158,6 +158,48 @@ Run `python inference.py --help` for checkpoint-path and sampling options.
 
 Only load preprocessing cache files that you created or trust, because Python pickle files can execute code while loading.
 
+MediaPipe preprocessing is available as an alternative to the OpenMMLab path.
+Install `requirements-mediapipe.txt` instead of `requirements.txt`, after installing
+a CUDA-compatible PyTorch/torchvision build. This environment uses MediaPipe 1.0.1
+Tasks (not the legacy `mp.solutions` API). Full-range face detection is followed
+by an explicit crop and the official Face Landmarker task on CPU. Preprocessing
+runs in a separate CPU process to isolate MediaPipe native libraries from PyTorch.
+It does not require MMCV, MMEngine, MMDetection, or MMPose. Use only the pinned
+`opencv-contrib-python` package in this environment; do not also install
+`opencv-python`, since both provide `cv2`.
+
+Download the [Face Landmarker model bundle](https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task)
+(3,758,596 bytes):
+
+```bash
+mkdir -p checkpoints
+curl -fL https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task \
+  -o checkpoints/face_landmarker.task
+echo '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff  checkpoints/face_landmarker.task' | sha256sum -c -
+curl -fL https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/latest/blaze_face_full_range.tflite \
+  -o checkpoints/blaze_face_full_range.tflite
+echo '3698b18f063835bc609069ef052228fbe86d9c9a6dc8dcb7c7c2d69aed2b181b  checkpoints/blaze_face_full_range.tflite' | sha256sum -c -
+```
+
+Add these arguments to the Student inference command above:
+
+```bash
+--preprocess-backend mediapipe \
+--mediapipe-model checkpoints/face_landmarker.task \
+--mediapipe-detector-model checkpoints/blaze_face_full_range.tflite \
+--preprocess-report results/face_detection.json
+```
+
+The additional full-range detector is 1,083,786 bytes. The backend selects the
+highest-scoring face in each frame and is intended for single-person footage.
+It expands each detection by 1.5 for the landmark task, then constructs the final
+Student face crop with the existing 1.45 padding
+factor and smoothing policy, and preserves the crop/paste-back interface. Brief
+missing detections (up to 0.4 seconds) are interpolated and listed in the report;
+long gaps or a completely missing face raise an error. Use separate preprocessing
+caches for each backend. Model landmarks differ between backends, so compare the
+resulting crops and generated videos before adopting it for new footage.
+
 ## Citation
 
 ```bibtex

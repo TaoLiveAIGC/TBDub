@@ -187,7 +187,7 @@ def sg_smooth(points, window_length=5, polyorder=2):
     return smoothed_points
 
 
-def build_face_bbox_from_landmarks(face_ldmk, ori_width, ori_height, num_passes=5):
+def build_face_bbox_from_landmarks(face_ldmk, ori_width, ori_height, num_passes=5, add_forehead=True):
     def get_forehead(abcd):
         forehead = (abcd[:, 0] + abcd[:, 1]) / 2 + 1.1 * (((abcd[:, 0] + abcd[:, 1]) / 2) - ((abcd[:, 2] + abcd[:, 3]) / 2))
         return forehead[:, np.newaxis, :]
@@ -228,8 +228,12 @@ def build_face_bbox_from_landmarks(face_ldmk, ori_width, ori_height, num_passes=
                 final_smoothed_ldmk[frame_id] = np.mean(smoothed_ldmk[start_idx:end_idx], axis=0)
             smoothed_ldmk = final_smoothed_ldmk
 
-    forehead = get_forehead(smoothed_ldmk[:, :4, :])
-    final_smoothed_ldmk = np.concatenate([smoothed_ldmk, forehead], axis=1)
+    if add_forehead:
+        forehead = get_forehead(smoothed_ldmk[:, :4, :])
+        final_smoothed_ldmk = np.concatenate([smoothed_ldmk, forehead], axis=1)
+    else:
+        # MediaPipe already includes the forehead in its face mesh.
+        final_smoothed_ldmk = smoothed_ldmk
 
     bbox = []
     for frame_id in range(num_frames):

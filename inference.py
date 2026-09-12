@@ -72,11 +72,20 @@ def require_paths(paths: list[str | Path]) -> None:
 
 def preprocess_inputs(video_path: str, audio_path: str, args: argparse.Namespace) -> PreprocessedSample:
     sample_name = args.sample_name or Path(video_path).stem
-    raw_video, reference_video, bboxes, case_flag = preprocess_video_with_dwpose(
-        video_path,
-        device=args.device,
-        model_dir=args.dwpose_model_dir,
-    )
+    if args.preprocess_backend == "mediapipe":
+        from preprocessing_mediapipe import preprocess_video_with_mediapipe
+
+        raw_video, reference_video, bboxes, case_flag = preprocess_video_with_mediapipe(
+            video_path, model_path=args.mediapipe_model,
+            detector_model_path=args.mediapipe_detector_model,
+            report_path=args.preprocess_report,
+        )
+    else:
+        raw_video, reference_video, bboxes, case_flag = preprocess_video_with_dwpose(
+            video_path,
+            device=args.device,
+            model_dir=args.dwpose_model_dir,
+        )
     print(
         f"[TBDub] preprocessing complete: frames={len(reference_video)}, "
         f"crop_mode={case_flag}, first_bbox={bboxes[0]}"
@@ -374,6 +383,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt-embedding", default=str(DEFAULT_CHECKPOINT_DIR / "null_prompt_emb.pt"))
     parser.add_argument("--hubert-checkpoint", default=str(DEFAULT_CHECKPOINT_DIR / "hubert-large-ll60k"))
     parser.add_argument("--dwpose-model-dir", default=str(REPO_ROOT / "dwpose_tools" / "models"))
+    parser.add_argument("--preprocess-backend", choices=("dwpose", "mediapipe"), default="dwpose")
+    parser.add_argument("--mediapipe-model", default=str(DEFAULT_CHECKPOINT_DIR / "face_landmarker.task"))
+    parser.add_argument("--mediapipe-detector-model", default=str(DEFAULT_CHECKPOINT_DIR / "blaze_face_full_range.tflite"))
+    parser.add_argument("--preprocess-report", help="Optional JSON report for MediaPipe detection and crop diagnostics.")
 
     parser.add_argument("--ref-cfg-scale", "--ref_cfg_scale", dest="ref_cfg_scale", type=float, default=2.0)
     parser.add_argument("--audio-cfg-scale", "--audio_cfg_scale", dest="audio_cfg_scale", type=float, default=6.0)
@@ -453,9 +466,15 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cache_path = Path(args.preprocess_cache) if args.preprocess_cache else None
+    backend_revision = "full_range_v1" if args.preprocess_backend == "mediapipe" else None
     if cache_path and cache_path.exists() and not args.cropped_input:
         with cache_path.open("rb") as file:
             cached = pickle.load(file)
+        cached_backend = cached.get("preprocess_backend", "dwpose")
+        if cached_backend != args.preprocess_backend:
+            raise ValueError(f"Preprocess cache backend {cached_backend!r} does not match {args.preprocess_backend!r}.")
+        if backend_revision and cached.get("preprocess_backend_revision") != backend_revision:
+            raise ValueError("MediaPipe preprocessing changed; regenerate the preprocessing cache.")
         sample = PreprocessedSample(
             raw_video=cached["raw_video"],
             reference_video=cached["reference_video"],
@@ -473,6 +492,8 @@ def main() -> None:
             with cache_path.open("wb") as file:
                 pickle.dump(
                     {
+                        "preprocess_backend": args.preprocess_backend,
+                        "preprocess_backend_revision": backend_revision,
                         "raw_video": sample.raw_video,
                         "reference_video": sample.reference_video,
                         "bboxes": sample.bboxes,
