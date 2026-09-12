@@ -2,8 +2,7 @@
 
 Model weights are intentionally excluded from source control. The default inference configuration expects:
 
-- `tbdub_base.safetensors` (Teacher only)
-- `tbdub_finetune.safetensors` (Teacher only)
+- `tbdub_teacher.safetensors` (standalone BF16 Teacher)
 - `tbdub_student.safetensors` (standalone BF16 DMD2 Student; no Base required)
 - `Wan2.2_VAE.safetensors`
 - `null_prompt_emb.pt`
@@ -16,9 +15,9 @@ download `face_landmarker.task` as described in the repository README. The pinne
 MediaPipe 0.10.21 package includes its full-range detector; DWPose weights are
 only needed for the DWPose backend.
 
-Checkpoint state dictionaries are applied from left to right. Teacher inference
-loads the fine-tuned checkpoint after the base checkpoint. Student inference
-loads only the complete Student checkpoint (about 12.59 GB in BF16). Original
+Teacher and Student each load one complete checkpoint (about 12.59 GB in BF16).
+The Teacher already combines the former Base + Fine-tune parameters. Explicit
+legacy checkpoint lists are still applied from left to right. Original
 FP32 Student files also work alone and are converted to BF16 during loading.
 See the repository README and `python inference.py --help` for path overrides,
 sampling options, and the verified BF16 export script.

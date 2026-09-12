@@ -35,8 +35,7 @@ from video_utils import (
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_CHECKPOINT_DIR = REPO_ROOT / "checkpoints"
 DEFAULT_DIT_CHECKPOINTS = [
-    str(DEFAULT_CHECKPOINT_DIR / "tbdub_base.safetensors"),
-    str(DEFAULT_CHECKPOINT_DIR / "tbdub_finetune.safetensors"),
+    str(DEFAULT_CHECKPOINT_DIR / "tbdub_teacher.safetensors"),
 ]
 CLIP_NUM_FRAMES = 77
 MOTION_NUM_FRAMES = 5
@@ -367,7 +366,7 @@ def parse_args() -> argparse.Namespace:
         dest="dit_checkpoint",
         nargs="+",
         default=None,
-        help="DiT checkpoints applied left to right. Defaults: Teacher = base + fine-tuned; Student = student only.",
+        help="DiT checkpoints applied left to right. Defaults to the standalone Teacher or Student checkpoint for the selected mode.",
     )
     parser.add_argument("--vae-checkpoint", default=str(DEFAULT_CHECKPOINT_DIR / "Wan2.2_VAE.safetensors"))
     parser.add_argument("--prompt-embedding", default=str(DEFAULT_CHECKPOINT_DIR / "null_prompt_emb.pt"))

@@ -15,9 +15,7 @@ checkpoint_dir="${TBDUB_CHECKPOINT_DIR:-$script_dir/checkpoints}"
 python "$script_dir/inference.py" \
   --video "$source_video" \
   --audio "$driving_audio" \
-  --dit-checkpoint \
-    "$checkpoint_dir/tbdub_base.safetensors" \
-    "$checkpoint_dir/tbdub_finetune.safetensors" \
+  --dit-checkpoint "$checkpoint_dir/tbdub_teacher.safetensors" \
   --ref-cfg-scale 2.0 \
   --audio-cfg-scale 6.0 \
   --num-inference-steps 30 \

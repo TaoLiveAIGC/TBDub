@@ -61,8 +61,7 @@ Place the following files under `checkpoints/`, or provide their paths through t
 
 ```text
 checkpoints/
-├── tbdub_base.safetensors
-├── tbdub_finetune.safetensors
+├── tbdub_teacher.safetensors       # standalone BF16 Teacher
 ├── tbdub_student.safetensors       # standalone BF16 Student; no Base needed
 ├── Wan2.2_VAE.safetensors
 ├── null_prompt_emb.pt
@@ -82,7 +81,7 @@ Teacher (30 steps):
 ```bash
 hf download TaoLiveAIGC/TBDub \
   config.json null_prompt_emb.pt \
-  tbdub_base.safetensors tbdub_finetune.safetensors \
+  tbdub_teacher.safetensors \
   --local-dir checkpoints
 ```
 
@@ -118,9 +117,7 @@ Equivalent Python command:
 python inference.py \
   --video path/to/source.mp4 \
   --audio path/to/driving.wav \
-  --dit-checkpoint \
-    checkpoints/tbdub_base.safetensors \
-    checkpoints/tbdub_finetune.safetensors \
+  --dit-checkpoint checkpoints/tbdub_teacher.safetensors \
   --ref-cfg-scale 2.0 \
   --audio-cfg-scale 6.0 \
   --num-inference-steps 30 \
@@ -128,11 +125,26 @@ python inference.py \
   --output-dir results
 ```
 
-For Teacher, the two DiT files are loaded in order: the fine-tuned checkpoint overlays the base checkpoint. The defaults above reproduce the parameter configuration used by the project inference script. Student uses a single complete checkpoint.
+Teacher and Student each use one complete BF16 DiT checkpoint. The Teacher file
+contains the same 877 tensors from the former fine-tuned file and 368 tensors
+from Base, combined using the original last-file-wins loading rule. Users no
+longer need to download or combine Base and Fine-tune. Its size is about 12.59 GB,
+compared with 22.87 GB for the former two-file Teacher download.
 
-The released Teacher fine-tuned file contains 877 tensors; the remaining 368
-come from Base, including context attention, normalization, and text projection
-parameters. These files populate one DiT model, rather than two sequential models.
+Older Base + Fine-tune files remain usable through explicit `--dit-checkpoint`
+paths in that order. To consolidate an existing local pair without overwriting it:
+
+```bash
+python scripts/merge_teacher.py \
+  checkpoints/tbdub_base.safetensors \
+  checkpoints/tbdub_finetune.safetensors \
+  checkpoints/tbdub_teacher.safetensors \
+  --report teacher_merge.json
+```
+
+The CPU exporter validates the model signature and verifies every saved tensor
+against the original runtime merge. It requires host memory for a complete model
+and serialization buffers. This is a storage/layout change, not model retraining.
 
 ### Distilled Student inference
 
