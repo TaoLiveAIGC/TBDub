@@ -18,6 +18,21 @@ Give an existing video a new voice. TBDub synchronizes the speaker's lips with n
 
 **Code · Teacher · Student — all open source under Apache-2.0.**
 
+## See TBDub in action · 46-second demo
+
+**One voice track, four faces — multilingual lip sync with the two-step Student Model.**
+Watch examples in seven languages across microphone and on-screen text occlusions,
+large head turns, and rapid head motion. The video opens with the original clips,
+then shows the generated results. Turn on sound to hear the language changes.
+
+<p align="center">
+  <a href="https://huggingface.co/TaoLiveAIGC/TBDub/blob/main/media/tbdub-student-multilingual.mp4">
+    <img src="https://huggingface.co/TaoLiveAIGC/TBDub/resolve/main/media/tbdub-student-multilingual.webp" alt="Play the 46-second TBDub Student Model demo: four faces across seven language examples" width="400">
+  </a>
+</p>
+
+**[▶ Watch the demo with sound](https://huggingface.co/TaoLiveAIGC/TBDub/blob/main/media/tbdub-student-multilingual.mp4)** · [Run the Student Model](#quick-start)
+
 ## What's new in V1.1
 
 V1.1 reduces model downloads and adds optional CPU offload for the existing Teacher and Student:
