@@ -5,6 +5,9 @@ Download one complete BF16 DiT checkpoint for the model variant you want:
 - `tbdub_teacher.safetensors` for Teacher, or
 - `tbdub_student.safetensors` for Student.
 
+Download `config.json` with either variant: inference reads and validates this
+manifest for runtime defaults.
+
 Both variants share these auxiliary files:
 
 - `Wan2.2_VAE.safetensors`

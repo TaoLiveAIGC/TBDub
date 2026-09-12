@@ -27,11 +27,8 @@ checkpoint_dir="${TBDUB_CHECKPOINT_DIR:-$script_dir/checkpoints}"
 python "$script_dir/inference.py" \
   --video "$source_video" \
   --audio "$driving_audio" \
-  --mediapipe-model "$checkpoint_dir/face_landmarker.task" \
-  --dit-checkpoint "$checkpoint_dir/tbdub_teacher.safetensors" \
-  --ref-cfg-scale 2.0 \
-  --audio-cfg-scale 6.0 \
-  --num-inference-steps 30 \
+  --checkpoint-dir "$checkpoint_dir" \
+  --inference-mode teacher \
   --seed 42 \
   --output-dir "$output_dir" \
   "${memory_args[@]}"

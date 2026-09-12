@@ -7,6 +7,9 @@ full-frame input (MediaPipe crop + paste-back) and already cropped 512x512 input
 from __future__ import annotations
 
 import argparse
+import os
+import sys
+from runtime_config import configure_runtime
 import pickle
 import subprocess
 from dataclasses import dataclass
@@ -335,8 +338,9 @@ def run_inference(
     return output_path
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate a lip-synchronized video with TBDub.")
+def parse_args(argv=None) -> argparse.Namespace:
+    argv = sys.argv[1:] if argv is None else list(argv)
+    parser = argparse.ArgumentParser(description="Generate a lip-synchronized video with TBDub.", allow_abbrev=False)
     parser.add_argument(
         "--video", "--video_path", dest="video", required=True,
         help="Path to the source video or source image.",
@@ -354,9 +358,12 @@ def parse_args() -> argparse.Namespace:
         "--start-frame", "--video_start_idx", dest="start_frame", type=int, default=0,
         help="First source-video frame to use.",
     )
+    parser.add_argument("--checkpoint-dir", default=os.environ.get("TBDUB_CHECKPOINT_DIR", str(DEFAULT_CHECKPOINT_DIR)),
+                        help="Root directory for all models and config.json.")
+    parser.add_argument("--config", help="TBDub manifest; defaults to checkpoint-dir/config.json.")
     parser.add_argument("--device", default="cuda:0", help="Torch device used for inference.")
     parser.add_argument(
-        "--cpu-offload", action="store_true",
+        "--cpu-offload", action=argparse.BooleanOptionalAction, default=False,
         help="Reduce GPU memory by moving inactive model weights to CPU. Disabled by default for faster inference.",
     )
 
@@ -404,7 +411,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--motion-from-latents", "--motion_from_latents",
-        dest="motion_from_latents", action="store_true",
+        dest="motion_from_latents", action=argparse.BooleanOptionalAction, default=False,
     )
     parser.add_argument(
         "--student-first-clip-padding", "--student_first_clip_padding",
@@ -425,14 +432,8 @@ def parse_args() -> argparse.Namespace:
         "--preprocess-cache", "--preprocess_cache_path", dest="preprocess_cache",
         help="Optional pickle cache for crop frames and bounding boxes.",
     )
-    args = parser.parse_args()
-    if args.dit_checkpoint is None:
-        args.dit_checkpoint = (
-            [str(DEFAULT_CHECKPOINT_DIR / "tbdub_student.safetensors")]
-            if args.inference_mode == "student"
-            else list(DEFAULT_DIT_CHECKPOINTS)
-        )
-    return args
+    args = parser.parse_args(argv)
+    return configure_runtime(parser, args, argv)
 
 
 def main() -> None:

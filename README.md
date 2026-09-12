@@ -179,6 +179,35 @@ If a run fails because GPU memory is insufficient, add `--cpu-offload` to the
 Python command or `infer.sh` command and run again. Memory mode is selected manually; the program
 does not automatically detect available memory or switch modes after an error.
 
+### Runtime configuration
+
+Inference reads `checkpoints/config.json` by default. It validates the manifest
+format, model identity, fixed frame/resolution settings, BF16 variant, and
+preprocessing backend before preprocessing or model loading. Sampling defaults
+and model file paths come from the selected variant in that manifest; explicit
+command-line options take precedence. Unsupported configurations fail with an
+error rather than being silently ignored.
+
+To keep all models in another directory, retain the same relative layout and use:
+
+```bash
+python inference.py --video source.mp4 --audio driving.wav \
+  --inference-mode student --checkpoint-dir /path/to/models
+
+TBDUB_CHECKPOINT_DIR=/path/to/models bash infer.sh source.mp4 driving.wav results
+```
+
+The directory applies to the manifest, DiT, VAE, HuBERT, prompt embedding, and
+Face Landmarker. `--config /path/to/config.json` selects a different manifest;
+its model paths still resolve relative to `--checkpoint-dir`. An explicit
+per-model path overrides the manifest for that model. `--no-cpu-offload` and
+`--no-motion-from-latents` can override enabled manifest defaults.
+
+For older local setups without a manifest, built-in defaults remain available
+with a warning. An explicitly requested missing manifest, or an incompatible
+manifest that is present, is an error. Download the current `config.json` with
+new weights. The compatibility checks do not recompute multi-GB weight hashes.
+
 ### Lower GPU memory usage
 
 With `--cpu-offload`, DiT and VAE weights move between CPU memory and the GPU at stage

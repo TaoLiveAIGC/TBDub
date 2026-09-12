@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Read and validate the downloaded TBDub manifest; explicit CLI options override its defaults.
+- Apply custom checkpoint directories consistently to all model files.
+
 ## V1.1 — 2026-09-12
 
 An inference and deployment update using the existing trained Teacher and Student.
