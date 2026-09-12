@@ -7,13 +7,8 @@ if (!datasets.zh || !datasets.en || !window.UI_COPY) {
   throw new Error("Localized project content is incomplete. Check content.js and i18n.js.");
 }
 
+// Each visit starts in English. A language switch applies only to this page view.
 let currentLanguage = "en";
-try {
-  const savedLanguage = window.localStorage.getItem("tbdub-language-v2");
-  if (savedLanguage === "zh" || savedLanguage === "en") currentLanguage = savedLanguage;
-} catch {
-  // file:// previews may restrict storage; English remains the safe default.
-}
 
 let data = datasets[currentLanguage];
 let copy = window.UI_COPY[currentLanguage];
@@ -50,8 +45,6 @@ function bindProjectContent() {
   setText("[data-title-en]", project.titleEn);
   setText("[data-title-cn]", project.titleCn);
   setText("[data-affiliation]", project.affiliation);
-  setText("[data-abstract]", project.abstract);
-  setText("[data-summary-intro]", project.summaryIntro);
   setText("[data-demo-intro]", project.demoIntro);
   setText("[data-method-title]", data.method.title);
   setText("[data-method-intro]", data.method.intro);
@@ -60,15 +53,6 @@ function bindProjectContent() {
     .map((author) => `<span>${author.name}${author.note ? `<sup>${author.note}</sup>` : ""}</span>`)
     .join("");
   document.querySelector("#author-notes").textContent = project.authorNote;
-
-  document.querySelector("#research-focus-grid").innerHTML = project.focusAreas
-    .map((item) => `
-      <article class="research-focus-card">
-        <span class="mono">${item.index}</span>
-        <h3>${item.title}${item.titleCn ? `<small>${item.titleCn}</small>` : ""}</h3>
-        <p>${item.text}</p>
-      </article>`)
-    .join("");
 
   Object.entries(project.links).forEach(([key, url]) => {
     document.querySelectorAll(`[data-link="${key}"]`).forEach((link) => {
@@ -84,6 +68,43 @@ function bindProjectContent() {
       }
     });
   });
+}
+
+function renderHeroEvidence() {
+  const project = data.project;
+  document.querySelector("#open-line").textContent = project.openLine;
+  document.querySelector("#hero-scope").textContent = project.scope;
+  document.querySelector("#hero-lead").textContent = project.heroLead;
+  document.querySelector("#hero-proof-grid").innerHTML = project.heroHighlights.map((item) => `
+    <article class="hero-proof-card">
+      <span class="mono">${item.eyebrow}</span>
+      <strong>${item.value}</strong>
+      <h2>${item.title}</h2>
+      <p>${item.text}</p>
+      <small>${item.meta}</small>
+      <div class="hero-proof-links">${item.links.map((link) => `<a href="${link.href}">${link.label} ↓</a>`).join("")}</div>
+    </article>`).join("");
+
+  const reel = project.showreel;
+  document.querySelector("#highlight-reel").innerHTML = `
+    <div class="hero-showreel-copy">
+      <span class="mono">${reel.eyebrow}</span>
+      <h2>${reel.title}</h2>
+      <p>${reel.text}</p>
+      <small>${reel.meta}</small>
+    </div>
+    <div class="video-item highlight hero-reel-media" data-method-label="${reel.label}">
+      <div class="video-frame">
+        <span class="video-label">${reel.label}</span>
+        <img class="video-poster" src="${reel.poster}" alt="${reel.posterAlt}" loading="eager" decoding="async" />
+        <video data-src="${reel.src}" data-poster="${reel.poster}" preload="none" playsinline hidden aria-hidden="true" aria-label="${reel.label}"></video>
+        <button class="video-load" type="button" aria-label="${copy.playVideo}: ${reel.label}">
+          <span class="video-play-icon" aria-hidden="true">▶</span>
+          <span>${reel.cta}</span>
+        </button>
+      </div>
+      <div class="video-meta"><strong>${reel.label}</strong><span>${reel.duration}</span></div>
+    </div>`;
 }
 
 function mediaBlock(video, aspect = "landscape") {
@@ -143,7 +164,7 @@ function bindLazyMedia() {
 
 function renderCases(cases) {
   return cases.map((item) => `
-    <article class="demo-group reveal">
+    <article id="${item.id}" class="demo-group reveal">
       <div class="demo-head">
         <div>
           ${item.scenario ? `<span class="scenario-label mono">${item.scenario}</span>` : ""}
@@ -353,6 +374,7 @@ function renderPage() {
   copy = window.UI_COPY[currentLanguage];
   bindStaticCopy();
   bindProjectContent();
+  renderHeroEvidence();
   renderQualitativeResults();
   renderMethod();
   renderMetrics();
@@ -367,11 +389,6 @@ function bindLanguageSwitcher() {
       const nextLanguage = button.dataset.language;
       if (nextLanguage === currentLanguage) return;
       currentLanguage = nextLanguage;
-      try {
-        window.localStorage.setItem("tbdub-language-v2", currentLanguage);
-      } catch {
-        // The switch still works when storage is unavailable.
-      }
       renderPage();
     });
   });
