@@ -11,9 +11,22 @@
   </p>
 </div>
 
-TBDub is an audio-driven video dubbing system designed for high-fidelity identity preservation, temporal consistency, and robust lip synchronization under challenging motion, pose, occlusion, and cross-domain conditions.
+**High-quality lip sync. Fast, multilingual, and robust.**
 
-This repository contains the inference code. Model checkpoints are hosted on [Hugging Face](https://huggingface.co/TaoLiveAIGC/TBDub).
+Give an existing video a new voice. TBDub synchronizes the speaker's lips with new speech while preserving their appearance, motion, and background.
+
+**Code · Teacher · Student — all open source under Apache-2.0.**
+
+## Why TBDub?
+
+- **🏆 Leading perceptual quality.** Highest mean opinion scores in all three dimensions among the open-source methods in our study: **3.85 lip sync**, **3.80 visual quality**, and **3.78 identity preservation**. Student leads the first two; Teacher leads identity. [See results](https://taoliveaigc.github.io/TBDub/#subjective-results).
+- **⚡ Fast, two-step generation.** **7.13 FPS** on a single **NVIDIA H20 at 512 × 512**, or **13.93×** the Teacher's core generation speed. [See benchmark](https://taoliveaigc.github.io/TBDub/#efficiency).
+- **🌍 Multilingual lip sync.** Lip sync across languages, with examples including **English, Chinese, Japanese, Korean, and Russian**. See lip sync and identity preservation in multilingual reconstruction. [Watch examples](https://taoliveaigc.github.io/TBDub/#subgroup-self-multilingual).
+- **🛡️ Robust in challenging scenes.** Stable lip sync and appearance through **large head turns, hands and microphones over the mouth, and rapid motion**. [Head turns](https://taoliveaigc.github.io/TBDub/#cross-large-pose) · [Occlusions](https://taoliveaigc.github.io/TBDub/#cross-occlusion-02).
+
+MOS: 38 TalkVid clips, 114 ratings per method, on a 0–5 scale. Speed: VAE encode to decode, excluding preprocessing, audio encoding, and file output. [Full evaluation protocol](https://arxiv.org/html/2609.06144v1).
+
+**[Watch comparisons](https://taoliveaigc.github.io/TBDub/#demos) · [Get the code](https://github.com/TaoLiveAIGC/TBDub#quick-start) · [Download models](https://huggingface.co/TaoLiveAIGC/TBDub)**
 
 ## Inference pipeline
 
