@@ -107,6 +107,58 @@ function renderHeroEvidence() {
     </div>`;
 }
 
+function renderRelease() {
+  const release = window.RELEASE_COPY[currentLanguage];
+  document.querySelector("#release-banner").innerHTML = `
+    <strong>V1.1</strong><span>${release.banner}</span><span class="release-banner-link">${release.view} ↓</span>`;
+  document.querySelector("#release-notes").innerHTML = `
+    <div class="release-heading">
+      <p class="section-label">${release.eyebrow}</p>
+      <h2 id="release-title">${release.title}</h2>
+      <p>${release.intro}</p>
+    </div>
+    <div class="release-cards">${release.cards.map((card) => `
+      <article class="release-card">
+        <span class="mono">${card.label}</span>
+        <h3>${card.title}</h3>
+        <p>${card.text}</p>
+        <a href="${card.href}">${card.link} ↗</a>
+      </article>`).join("")}</div>
+    <div class="release-history">
+      <p><strong>V1.1</strong><time datetime="2026-09-12">2026-09-12</time><span>${release.current}</span></p>
+      <p><strong>V1.0</strong><span>${release.previous}</span></p>
+    </div>
+    <a class="release-changelog" href="https://github.com/TaoLiveAIGC/TBDub/blob/master/CHANGELOG.md">${release.changelog} ↗</a>`;
+
+  const memory = release.memory;
+  document.querySelector("#gpu-memory").innerHTML = `
+    <p class="section-label">${memory.eyebrow}</p>
+    <h3 id="memory-title">${memory.title}</h3>
+    <p class="memory-intro">${memory.intro}</p>
+    <div class="memory-table-wrap">
+      <table class="memory-table">
+        <caption>${memory.caption}</caption>
+        <thead><tr>${memory.columns.map((label) => `<th scope="col">${label}</th>`).join("")}</tr></thead>
+        <tbody>
+          <tr><th scope="row">Teacher</th><td>27.95 GiB</td><td class="memory-reduced">19.49 GiB</td></tr>
+          <tr><th scope="row">Student</th><td>27.93 GiB</td><td class="memory-reduced">15.01 GiB</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="memory-caption">${memory.scope}</p>
+    <div class="memory-cfg">
+      <h4>${memory.cfgTitle}</h4>
+      <p>${memory.cfg}</p>
+    </div>
+    <details class="memory-details">
+      <summary>${memory.detailsTitle}</summary>
+      <p>${memory.settings}</p>
+      <p>${memory.tradeoff}</p>
+      <p>${memory.validation}</p>
+    </details>
+    <a class="release-changelog" href="https://github.com/TaoLiveAIGC/TBDub#lower-gpu-memory-usage">${memory.usage} ↗</a>`;
+}
+
 function mediaBlock(video, aspect = "landscape") {
   const ready = Boolean(video.src);
   return `
@@ -375,6 +427,7 @@ function renderPage() {
   bindStaticCopy();
   bindProjectContent();
   renderHeroEvidence();
+  renderRelease();
   renderQualitativeResults();
   renderMethod();
   renderMetrics();
