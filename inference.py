@@ -1,7 +1,8 @@
 """Command-line inference for TBDub.
 
 The script keeps only the public single-video inference path. It supports both
-full-frame input (DWPose crop + paste-back) and already cropped 512x512 input.
+full-frame input (MediaPipe crop + paste-back by default) and already cropped
+512x512 input. DWPose remains available as an optional preprocessing backend.
 """
 
 from __future__ import annotations
@@ -378,7 +379,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt-embedding", default=str(DEFAULT_CHECKPOINT_DIR / "null_prompt_emb.pt"))
     parser.add_argument("--hubert-checkpoint", default=str(DEFAULT_CHECKPOINT_DIR / "hubert-large-ll60k"))
     parser.add_argument("--dwpose-model-dir", default=str(REPO_ROOT / "dwpose_tools" / "models"))
-    parser.add_argument("--preprocess-backend", choices=("dwpose", "mediapipe"), default="dwpose")
+    parser.add_argument(
+        "--preprocess-backend", choices=("mediapipe", "dwpose"), default="mediapipe",
+        help="Face preprocessing backend (default: mediapipe). DWPose requires the optional OpenMMLab environment.",
+    )
     parser.add_argument("--mediapipe-model", default=str(DEFAULT_CHECKPOINT_DIR / "face_landmarker.task"))
     parser.add_argument("--preprocess-report", help="Optional JSON report for MediaPipe detection and crop diagnostics.")
 
@@ -409,7 +413,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--per-chunk-audio", "--per_chunk_audio", dest="per_chunk_audio", action="store_true")
     parser.add_argument(
         "--cropped-input", "--cropped_input", dest="cropped_input", action="store_true",
-        help="Skip DWPose crop and paste-back.",
+        help="Skip face preprocessing and paste-back for an already aligned face video.",
     )
     parser.add_argument(
         "--motion-from-latents", "--motion_from_latents",

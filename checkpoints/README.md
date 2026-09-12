@@ -1,17 +1,18 @@
 # Checkpoints
 
-Model weights are intentionally excluded from source control. The default inference configuration expects:
+Model weights are intentionally excluded from source control. The default inference configuration expects one of the two DiT files and the shared auxiliary files below:
 
 - `tbdub_teacher.safetensors` (standalone BF16 Teacher)
 - `tbdub_student.safetensors` (standalone BF16 DMD2 Student; no Base required)
 - `Wan2.2_VAE.safetensors`
 - `null_prompt_emb.pt`
 - `hubert-large-ll60k/`
+- `face_landmarker.task` (default MediaPipe preprocessing)
 
 `null_prompt_emb.pt` supplies the precomputed empty-prompt context for both
 Teacher and Student. It must be kept; the T5 encoder checkpoint and `umt5-xxl/`
-tokenizer are no longer loaded or required. For MediaPipe preprocessing, also
-download `face_landmarker.task` as described in the repository README. The pinned
+tokenizer are no longer loaded or required. The repository README gives individual
+download commands for the VAE, HuBERT, and Face Landmarker. The pinned
 MediaPipe 0.10.21 package includes its full-range detector; DWPose weights are
 only needed for the DWPose backend.
 

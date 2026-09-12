@@ -15,6 +15,8 @@ checkpoint_dir="${TBDUB_CHECKPOINT_DIR:-$script_dir/checkpoints}"
 python "$script_dir/inference.py" \
   --video "$source_video" \
   --audio "$driving_audio" \
+  --preprocess-backend mediapipe \
+  --mediapipe-model "$checkpoint_dir/face_landmarker.task" \
   --dit-checkpoint "$checkpoint_dir/tbdub_teacher.safetensors" \
   --ref-cfg-scale 2.0 \
   --audio-cfg-scale 6.0 \

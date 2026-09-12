@@ -7,6 +7,7 @@
     <a href="https://taoliveaigc.github.io/TBDub/"><img src="https://img.shields.io/badge/Project-Page-blue" alt="Project Page"></a>
     <a href="https://github.com/TaoLiveAIGC/TBDub"><img src="https://img.shields.io/badge/GitHub-Code-181717?logo=github" alt="GitHub"></a>
     <a href="https://huggingface.co/TaoLiveAIGC/TBDub"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Model-yellow" alt="Hugging Face"></a>
+    <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Release-V1.1-green" alt="Release V1.1"></a>
     <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache--2.0-yellow" alt="License: Apache-2.0"></a>
   </p>
 </div>
@@ -16,6 +17,19 @@
 Give an existing video a new voice. TBDub synchronizes the speaker's lips with new speech while preserving their appearance, motion, and background.
 
 **Code · Teacher · Student — all open source under Apache-2.0.**
+
+## What's new in V1.1
+
+V1.1 updates inference and deployment; Teacher and Student use the same trained
+parameters as V1.0. [Full changelog and migration notes](CHANGELOG.md) ·
+[Project update](https://taoliveaigc.github.io/TBDub/#v1-1).
+
+- **Simpler installation:** MediaPipe 0.10.21 is the default face preprocessing backend. No MMCV or other OpenMMLab packages are needed for the default workflow.
+- **Smaller downloads:** one complete BF16 checkpoint per model, about **12.59 GB** each. Student needs no Base file; Teacher needs no separate Base/Fine-tune merge. The unused T5 encoder and tokenizer are no longer loaded or downloaded.
+- **Lower GPU memory with `--cpu-offload`:** measured process peaks of **15.01 GiB for Student** and **19.49 GiB for Teacher**, compared with 27.93/27.95 GiB in the same configuration with weights kept on the GPU. See [hardware, timing, and measurement scope](#lower-gpu-memory-usage).
+
+The memory comparison isolates CPU offload within V1.1; it is not a complete
+V1.0-versus-V1.1 benchmark. DWPose remains an [optional compatibility backend](docs/dwpose.md).
 
 ## Why TBDub?
 
@@ -30,7 +44,7 @@ MOS: 38 TalkVid clips, 114 ratings per method, on a 0–5 scale. Speed: VAE enco
 
 ## Inference pipeline
 
-1. Detect and track facial landmarks with DWPose.
+1. Detect faces with MediaPipe, crop each detected region, and extract facial landmarks.
 2. Crop and align the face region to `512 x 512`.
 3. Encode the reference video into latent tokens.
 4. Generate audio-aligned target latents with the TBDub DiT and cross-clip motion conditioning.
@@ -41,19 +55,24 @@ For an already aligned `512 x 512` face video, pass `--cropped-input` to skip st
 ## Requirements
 
 - Linux with an NVIDIA GPU
-- Python 3.10+
+- Python 3.10 (validated environment)
 - CUDA-compatible PyTorch
 - `ffmpeg` available on `PATH`
 
 Create an environment and install PyTorch for your CUDA version first. Then install the remaining packages:
 
 ```bash
-pip install -r requirements.txt
-pip install -U openmim
-mim install "mmcv==2.1.0"
+python -m pip install -r requirements.txt
 ```
 
-The DWPose preprocessing path also uses `mmengine`, `mmdet`, and `mmpose`, which are listed in `requirements.txt`. Follow the official OpenMMLab compatibility matrix if your CUDA or PyTorch version requires different package versions.
+The V1.1 default uses MediaPipe **0.10.21**, `protobuf==4.25.8`, and CPU JAX
+packages. It requires no MMCV, MMEngine, MMDetection, or MMPose. Use the pinned
+`opencv-contrib-python` package; do not also install `opencv-python`, since both
+provide `cv2`. `requirements-mediapipe.txt` remains an alias for this environment.
+
+The validated GPU software stack is PyTorch 2.9.0+cu128 with torchvision 0.24.0.
+For the previous preprocessing backend, use the separate
+[optional DWPose installation](docs/dwpose.md).
 
 ## Checkpoints
 
@@ -65,16 +84,13 @@ checkpoints/
 ├── tbdub_student.safetensors       # standalone BF16 Student; no Base needed
 ├── Wan2.2_VAE.safetensors
 ├── null_prompt_emb.pt
-└── hubert-large-ll60k/
-
-dwpose_tools/models/
-├── yolox_l_8x8_300e_coco_20211126_140236-d3bd2b23.pth
-└── rtmw-x_simcc-cocktail14_pt-ucoco_270e-384x288-f840f204_20231122.pth
+├── hubert-large-ll60k/
+└── face_landmarker.task            # default MediaPipe preprocessing
 ```
 
 
-
-Download the configuration manifest together with the model variant you plan to use.
+Download the configuration manifest together with **one** model variant you plan
+to use; both DiT files are not needed for a single variant.
 
 Teacher (30 steps):
 
@@ -94,7 +110,31 @@ hf download TaoLiveAIGC/TBDub \
   --local-dir checkpoints
 ```
 
-The versioned `config.json` records the runtime layout and is the model-level query file Hugging Face uses for download statistics. The remaining auxiliary checkpoints can be downloaded from [KlingTeam/X-Dub on Hugging Face](https://huggingface.co/KlingTeam/X-Dub).
+The versioned `config.json` records the runtime layout and is the model-level query file Hugging Face uses for download statistics.
+
+Both variants also need the VAE from [KlingTeam/X-Dub](https://huggingface.co/KlingTeam/X-Dub)
+and the audio encoder from [facebook/hubert-large-ll60k](https://huggingface.co/facebook/hubert-large-ll60k):
+
+```bash
+hf download KlingTeam/X-Dub Wan2.2_VAE.safetensors --local-dir checkpoints
+hf download facebook/hubert-large-ll60k \
+  config.json preprocessor_config.json pytorch_model.bin \
+  --local-dir checkpoints/hubert-large-ll60k
+```
+
+Download the [Face Landmarker model bundle](https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task)
+for default face preprocessing (3,758,596 bytes):
+
+```bash
+mkdir -p checkpoints
+curl -fL https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task \
+  -o checkpoints/face_landmarker.task
+echo '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff  checkpoints/face_landmarker.task' | sha256sum -c -
+```
+
+MediaPipe includes the face detector; no separate detector or DWPose weight
+download is needed. Already aligned inputs using `--cropped-input` can skip
+the Face Landmarker download.
 
 Both Teacher and Student use the precomputed context in `null_prompt_emb.pt`.
 This file is required even though the prompt is empty; its contents are not an
@@ -118,6 +158,8 @@ python inference.py \
   --video path/to/source.mp4 \
   --audio path/to/driving.wav \
   --dit-checkpoint checkpoints/tbdub_teacher.safetensors \
+  --preprocess-backend mediapipe \
+  --mediapipe-model checkpoints/face_landmarker.task \
   --ref-cfg-scale 2.0 \
   --audio-cfg-scale 6.0 \
   --num-inference-steps 30 \
@@ -224,7 +266,9 @@ files or require additional downloads.
 Measured on one RTX PRO 5000 72GB with a 22 GiB PyTorch allocator limit for
 CPU-offload mode: 512×512, 15.04-second audio, 376 output frames; Teacher 30
 steps with reference/audio CFG 2.5/10, Student two steps with latent motion.
-The table reports `nvidia-smi` process memory, including CUDA overhead.
+The table reports `nvidia-smi` process memory, including CUDA overhead. Both
+columns use the same V1.1 configuration and differ only in CPU offload; they
+are not labeled as V1.0 and V1.1 performance.
 
 | Model | GPU-resident process peak | CPU-offload process peak |
 |---|---:|---:|
@@ -242,58 +286,45 @@ measurements on the stated workstation, not an RTX 4090 benchmark.
 Teacher and Student have the same parameter count and BF16 weight size.
 Teacher evaluates three CFG branches together, sharing weights but producing
 more intermediate activations; Student evaluates one conditioned branch.
-The overall peak also depends on the dominant stage: without CPU offload,
+The overall peak also depends on the dominant stage: in this test, without CPU offload,
 the final VAE decode made their peaks almost equal. Longer videos may require
 more memory because the final VAE decode still spans the assembled sequence.
 
-MediaPipe preprocessing is available as an alternative to the OpenMMLab path.
-Install `requirements-mediapipe.txt` instead of `requirements.txt`, after installing
-a CUDA-compatible PyTorch/torchvision build. This environment pins MediaPipe
-0.10.21: the official `mp.solutions.face_detection.FaceDetection(model_selection=1)`
-uses its bundled full-range sparse detector, followed by an explicit crop and
-the official Face Landmarker task on CPU. Preprocessing
-runs in a separate CPU process to isolate MediaPipe native libraries from PyTorch.
-It does not require MMCV, MMEngine, MMDetection, or MMPose. Use only the pinned
-`opencv-contrib-python` package in this environment; do not also install
-`opencv-python`, since both provide `cv2`.
+### Face preprocessing
 
-MediaPipe 1.0.1 intermittently crashed during native graph initialization in our
-Linux environment, including in a minimal process without PyTorch. Process
-isolation alone did not resolve it. Use the pinned version and compatible
-`protobuf==4.25.8`; this release also requires the CPU JAX dependencies listed
-in `requirements-mediapipe.txt`. Its Tasks FaceDetector assumes short-range
-model output dimensions, which is why full-range detection uses the official
-solution API instead.
-
-Download the [Face Landmarker model bundle](https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task)
-(3,758,596 bytes):
+MediaPipe is the default in both `inference.py` and `infer.sh`. It runs the official
+`mp.solutions.face_detection.FaceDetection(model_selection=1)` full-range sparse
+detector, crops the detected face, and then runs the official Face Landmarker
+task on CPU. Preprocessing runs in a separate CPU process to isolate its native
+libraries from PyTorch. For detection diagnostics, add:
 
 ```bash
-mkdir -p checkpoints
-curl -fL https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task \
-  -o checkpoints/face_landmarker.task
-echo '64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff  checkpoints/face_landmarker.task' | sha256sum -c -
-```
-
-Add these arguments to the Student inference command above:
-
-```bash
---preprocess-backend mediapipe \
---mediapipe-model checkpoints/face_landmarker.task \
 --preprocess-report results/face_detection.json
 ```
+
+Use `--mediapipe-model` to override the default `checkpoints/face_landmarker.task`
+path. `infer.sh` also uses this file from `TBDUB_CHECKPOINT_DIR` when that variable
+is set. The [optional DWPose backend](docs/dwpose.md) requires explicit
+`--preprocess-backend dwpose` and its own dependencies and weights.
+
+The 0.10.21 pin is deliberate: MediaPipe 1.0.1 intermittently crashed during
+native graph initialization in our Linux environment, including in a minimal
+process without PyTorch. Process isolation alone did not resolve it. The pinned
+release uses compatible `protobuf==4.25.8` and the CPU JAX dependencies listed
+in `requirements.txt`. Its Tasks FaceDetector assumes short-range model output
+dimensions, which is why full-range detection uses the official solution API.
 
 No separate detector download is required: MediaPipe 0.10.21 includes it.
 The former `--mediapipe-detector-model` option has been removed; regenerate old
 MediaPipe preprocessing caches after upgrading this code. The backend selects the
 highest-scoring face in each frame and is intended for single-person footage.
 It expands each detection by 1.5 for the landmark task, then constructs the final
-Student face crop with the existing 1.45 padding
+face crop with the existing 1.45 padding
 factor and smoothing policy, and preserves the crop/paste-back interface. Brief
 missing detections (up to 0.4 seconds) are interpolated and listed in the report;
 long gaps or a completely missing face raise an error. Use separate preprocessing
 caches for each backend. Model landmarks differ between backends, so compare the
-resulting crops and generated videos before adopting it for new footage.
+resulting crops and generated videos when migrating existing footage from V1.0.
 
 ## Citation
 

@@ -1,11 +1,11 @@
-# V1.1 default inference environment with MediaPipe preprocessing.
-# No mmcv, mmengine, mmdet, or mmpose required.
+# Optional DWPose compatibility environment. See docs/dwpose.md.
+# Install in a separate environment instead of requirements.txt.
 # Install a CUDA-compatible torch/torchvision build separately.
 diffusers==0.36.0
 transformers==5.1.0
 safetensors==0.7.0
 sentencepiece==0.2.1
-protobuf==4.25.8
+protobuf==6.33.5
 modelscope==1.34.0
 huggingface-hub==1.4.1
 # Required by the Hugging Face download CLI.
@@ -18,13 +18,13 @@ tqdm==4.67.3
 imageio==2.37.2
 imageio-ffmpeg==0.6.0
 ffmpeg-python==0.2.0
-opencv-contrib-python==4.10.0.84
+opencv-python==4.10.0.84
 scikit-image==0.25.2
 ftfy==6.3.1
 regex==2026.1.15
 typing-extensions==4.15.0
 
-mediapipe==0.10.21
-# Required by MediaPipe 0.10.21; CPU builds only.
-jax==0.6.2
-jaxlib==0.6.2
+# DWPose / OpenMMLab. Install mmcv separately with openmim; see docs/dwpose.md.
+mmengine==0.10.7
+mmdet==3.2.0
+mmpose==1.3.2
