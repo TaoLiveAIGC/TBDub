@@ -64,10 +64,8 @@ checkpoints/
 ├── tbdub_base.safetensors
 ├── tbdub_finetune.safetensors
 ├── tbdub_student.safetensors       # optional distilled Student
-├── models_t5_umt5-xxl-enc-bf16.safetensors
 ├── Wan2.2_VAE.safetensors
 ├── null_prompt_emb.pt
-├── umt5-xxl/
 └── hubert-large-ll60k/
 
 dwpose_tools/models/
@@ -98,6 +96,15 @@ hf download TaoLiveAIGC/TBDub \
 ```
 
 The versioned `config.json` records the runtime layout and is the model-level query file Hugging Face uses for download statistics. The remaining auxiliary checkpoints can be downloaded from [KlingTeam/X-Dub on Hugging Face](https://huggingface.co/KlingTeam/X-Dub).
+
+Both Teacher and Student use the precomputed context in `null_prompt_emb.pt`.
+This file is required even though the prompt is empty; its contents are not an
+all-zero tensor. Inference does not load a T5 text encoder or tokenizer, so do not
+download `models_t5_umt5-xxl-enc-bf16.safetensors` or `umt5-xxl/` for this code.
+The former `--text-encoder-checkpoint` and `--tokenizer-path` options have been
+removed. Direct pipeline callers must supply `prompt_emb`; `from_pretrained`
+no longer accepts `tokenizer_config`. The DiT's context projection and attention
+weights remain required. Transformers is still used by HuBERT.
 
 ## Quick start
 

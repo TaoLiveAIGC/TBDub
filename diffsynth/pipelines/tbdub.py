@@ -12,7 +12,6 @@ from ..diffusion.flow_match import FlowMatchScheduler
 from ..core import ModelConfig, gradient_checkpoint_forward
 from ..diffusion.base_pipeline import BasePipeline, PipelineUnit
 from ..models.tbdub_dit import TBDubDiT, sinusoidal_embedding_1d 
-from ..models.wan_video_text_encoder import WanTextEncoder, HuggingfaceTokenizer
 from ..models.wan_video_vae import WanVideoVAE
 
 from ..models.model_loader import ModelPool
@@ -80,8 +79,6 @@ class TBDubPipeline(BasePipeline):
             height_division_factor=16, width_division_factor=16, time_division_factor=4, time_division_remainder=1
         )
         self.scheduler = FlowMatchScheduler("Wan")
-        self.tokenizer: HuggingfaceTokenizer = None
-        self.text_encoder: WanTextEncoder = None
         self.dit: TBDubDiT = None
         self.vae: WanVideoVAE = None
         self.hubert_processor: HubertProcessor = None
@@ -122,7 +119,6 @@ class TBDubPipeline(BasePipeline):
         torch_dtype: torch.dtype = torch.bfloat16,
         device: Union[str, torch.device] = get_device_type(),
         model_configs: list[ModelConfig] = [],
-        tokenizer_config: ModelConfig = ModelConfig(model_id="Wan-AI/Wan2.1-T2V-1.3B", origin_file_pattern="google/umt5-xxl/"),
         redirect_common_files: bool = True,
         vram_limit: float = None,
         args = None,
@@ -131,7 +127,6 @@ class TBDubPipeline(BasePipeline):
         # Redirect model path
         if redirect_common_files:
             redirect_dict = { 
-                "models_t5_umt5-xxl-enc-bf16.pth": ("DiffSynth-Studio/Wan-Series-Converted-Safetensors", "models_t5_umt5-xxl-enc-bf16.safetensors"),
                 "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth": ("DiffSynth-Studio/Wan-Series-Converted-Safetensors", "models_clip_open-clip-xlm-roberta-large-vit-huge-14.safetensors"),
                 "Wan2.1_VAE.pth": ("DiffSynth-Studio/Wan-Series-Converted-Safetensors", "Wan2.1_VAE.safetensors"),
                 "Wan2.2_VAE.pth": ("DiffSynth-Studio/Wan-Series-Converted-Safetensors", "Wan2.2_VAE.safetensors"),
@@ -149,7 +144,6 @@ class TBDubPipeline(BasePipeline):
         model_pool = pipe.download_and_load_models(model_configs, vram_limit) 
         
         # Fetch models
-        pipe.text_encoder = model_pool.fetch_model("wan_video_text_encoder")
         pipe.dit = model_pool.fetch_model("wan_video_dit", index=2) 
         pipe.vae = model_pool.fetch_model("wan_video_vae")
 
@@ -157,11 +151,6 @@ class TBDubPipeline(BasePipeline):
         if pipe.vae is not None:
             pipe.height_division_factor = pipe.vae.upsampling_factor * 2 # 16 * 2
             pipe.width_division_factor = pipe.vae.upsampling_factor * 2
-
-        # Initialize tokenizer
-        if tokenizer_config is not None:
-            tokenizer_config.download_if_necessary()
-            pipe.tokenizer = HuggingfaceTokenizer(name=tokenizer_config.path, seq_len=512, clean='whitespace')
 
         if hubert_ckpt_path is None:
             raise ValueError("`hubert_ckpt_path` is required.")
@@ -237,6 +226,9 @@ class TBDubPipeline(BasePipeline):
         progress_bar_cmd=tqdm,
         output_type: Optional[Literal["quantized", "floatpoint"]] = "quantized",
     ):
+        # Both sampling modes use the supplied, precomputed empty-prompt context.
+        if prompt_emb is None:
+            raise ValueError("`prompt_emb` is required; load null_prompt_emb.pt. TBDub does not encode text at runtime.")
         # Scheduler
         self.scheduler.set_timesteps(num_inference_steps, denoising_strength=denoising_strength, shift=sigma_shift)
         
@@ -386,51 +378,6 @@ class WanVideoUnit_NoiseInitializer(PipelineUnit):
         shape = (batch_size, pipe.vae.model.z_dim, length, height // pipe.vae.upsampling_factor, width // pipe.vae.upsampling_factor)   # (1, 48, 20, 32, 32)
         noise = pipe.generate_noise(shape, seed=seed, rand_device=rand_device)
         return {"noise": noise}
-    
-class WanVideoUnit_PromptEmbedder(PipelineUnit):
-    def __init__(self):
-        super().__init__(
-            seperate_cfg=True,
-            input_params_posi={"prompt": "prompt", "prompt_embed": "prompt_embed", "positive": "positive"},
-            input_params_nega={"prompt": "negative_prompt", "prompt_embed": "prompt_embed", "positive": "positive"},
-            output_params=("context",),
-            onload_model_names=("text_encoder",)
-        )
-    
-    def encode_prompt(self, pipe: TBDubPipeline, prompt):
-        ids, mask = pipe.tokenizer(prompt, return_mask=True, add_special_tokens=True)
-        ids = ids.to(pipe.device) # [bs, 512] 
-        mask = mask.to(pipe.device) # [bs, 512] 
-        seq_lens = mask.gt(0).sum(dim=1).long() 
-        with torch.no_grad():
-            prompt_emb = pipe.text_encoder(ids, mask) # [1,512,4096]
-        for i, v in enumerate(seq_lens):
-            prompt_emb[i, v:] = 0 
-        return prompt_emb
-
-    def process(self, pipe: TBDubPipeline, prompt, positive, prompt_embed):
-        prompt = prompt if isinstance(prompt, list) else [prompt]
-        prompt_embed = prompt_embed if isinstance(prompt_embed, list) else [prompt_embed]
-
-        if all(prompt_embed_item is not None for prompt_embed_item in prompt_embed):
-            context = []
-            for prompt_embed_item in prompt_embed:
-                if prompt_embed_item.ndim == 2:
-                    prompt_embed_item = prompt_embed_item.unsqueeze(0)
-                prompt_embed_item = prompt_embed_item.to(dtype=pipe.torch_dtype, device=pipe.device)
-                context_item = torch.zeros(
-                    (prompt_embed_item.shape[0], 512, prompt_embed_item.shape[-1]),
-                    dtype=prompt_embed_item.dtype,
-                    device=prompt_embed_item.device,
-                )
-                valid_length = min(prompt_embed_item.shape[1], 512)
-                context_item[:, :valid_length, :] = prompt_embed_item[:, :valid_length, :]
-                context.append(context_item)
-            return {"context": torch.cat(context, dim=0)}
-
-        pipe.load_models_to_device(self.onload_model_names)
-        prompt_emb = self.encode_prompt(pipe, prompt)
-        return {"context": prompt_emb}
     
 class WanVideoUnit_TargetVideoEmbedder(PipelineUnit):
     def __init__(self):

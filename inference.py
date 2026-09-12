@@ -142,9 +142,7 @@ def validate_sample(sample: PreprocessedSample) -> None:
 def build_pipeline(args: argparse.Namespace) -> tuple[TBDubPipeline, torch.Tensor]:
     checkpoint_paths = [
         *args.dit_checkpoint,
-        args.text_encoder_checkpoint,
         args.vae_checkpoint,
-        args.tokenizer_path,
         args.prompt_embedding,
         args.hubert_checkpoint,
     ]
@@ -159,10 +157,8 @@ def build_pipeline(args: argparse.Namespace) -> tuple[TBDubPipeline, torch.Tenso
         device=args.device,
         model_configs=[
             ModelConfig(path=args.dit_checkpoint, **runtime_vram_config),
-            ModelConfig(path=args.text_encoder_checkpoint, **runtime_vram_config),
             ModelConfig(path=args.vae_checkpoint, **runtime_vram_config),
         ],
-        tokenizer_config=ModelConfig(path=args.tokenizer_path),
         args=args,
         hubert_ckpt_path=args.hubert_checkpoint,
     )
@@ -374,12 +370,7 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_DIT_CHECKPOINTS,
         help="DiT checkpoints applied from left to right (base first, fine-tuned overlay last).",
     )
-    parser.add_argument(
-        "--text-encoder-checkpoint",
-        default=str(DEFAULT_CHECKPOINT_DIR / "models_t5_umt5-xxl-enc-bf16.safetensors"),
-    )
     parser.add_argument("--vae-checkpoint", default=str(DEFAULT_CHECKPOINT_DIR / "Wan2.2_VAE.safetensors"))
-    parser.add_argument("--tokenizer-path", default=str(DEFAULT_CHECKPOINT_DIR / "umt5-xxl"))
     parser.add_argument("--prompt-embedding", default=str(DEFAULT_CHECKPOINT_DIR / "null_prompt_emb.pt"))
     parser.add_argument("--hubert-checkpoint", default=str(DEFAULT_CHECKPOINT_DIR / "hubert-large-ll60k"))
     parser.add_argument("--dwpose-model-dir", default=str(REPO_ROOT / "dwpose_tools" / "models"))
