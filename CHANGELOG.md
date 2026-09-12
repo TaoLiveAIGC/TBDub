@@ -4,11 +4,8 @@
 
 An inference and deployment update using the existing trained Teacher and Student.
 
-- **One setup:** a single `requirements.txt` with MediaPipe 0.10.21 for face detection, cropping, and landmarks.
-- **Compact checkpoints:** one complete BF16 DiT file per variant, about 12.59 GB; about 15.27 GB including the shared auxiliary model files for either variant. No manual model combination is needed.
+- **Smaller downloads:** one complete BF16 DiT file per variant, about 12.59 GB; about 15.27 GB including the shared auxiliary model files for either variant. No manual model combination is needed.
 - **Optional lower GPU memory:** add `--cpu-offload` to move inactive models to system RAM. Models remain on the GPU by default for faster inference; users select the memory mode manually.
-- **Complete download instructions:** individual file lists for the chosen DiT, fixed prompt embedding, VAE, HuBERT, and Face Landmarker.
-- **Measured memory and output consistency:** complete 376-frame Teacher and Student outputs match their corresponding GPU-resident runs exactly when using CPU offload.
 
 ### Memory measurements
 
@@ -24,21 +21,18 @@ allocator limit. Teacher used 30 steps and reference/audio CFG 2.5/10; Student
 used two steps and latent motion. These data are separate from the paper's
 H20 speed benchmark and do not constitute an RTX 4090 hardware test.
 
+The complete 376-frame Teacher and Student outputs match their corresponding
+GPU-resident runs exactly when using CPU offload.
+
 CPU offload trades host memory and transfer time for GPU memory. Teacher's
 three CFG branches share weights but require more intermediate tensors than
 Student's single branch. Peak usage also depends on input length and the
 active stage. See the [full measurement scope and usage](README.md#lower-gpu-memory-usage).
 
-### Setup
-
-Use a fresh environment, install `requirements.txt`, and download the files
-for the model variant you want as shown in the [README](README.md#checkpoints).
-The current commands use MediaPipe and keep models on the GPU. Add
-`--cpu-offload` to the Python command if GPU memory is insufficient. Regenerate
-incompatible preprocessing caches with this version.
+See the [README](README.md) for installation, downloads, and inference commands.
+Regenerate incompatible preprocessing caches with this version.
 
 ## V1.0 — Initial public release
 
 The original release of the inference code, Teacher and Student models, and
-research results. V1.1 updates installation, model packaging, and runtime
-memory management without retraining the models.
+research results.

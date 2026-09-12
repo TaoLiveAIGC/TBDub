@@ -20,10 +20,9 @@ Give an existing video a new voice. TBDub synchronizes the speaker's lips with n
 
 ## What's new in V1.1
 
-V1.1 makes the existing Teacher and Student easier to deploy:
+V1.1 reduces model downloads and adds optional CPU offload for the existing Teacher and Student:
 
-- **One installation:** `requirements.txt` includes the validated MediaPipe 0.10.21 face preprocessing setup.
-- **Compact models:** download one complete BF16 DiT checkpoint, about **12.59 GB**, for the variant you want. Including shared auxiliary model files, a single variant needs about **15.27 GB** in total.
+- **Smaller downloads:** download one complete BF16 DiT checkpoint, about **12.59 GB**, for the variant you want. Including shared auxiliary model files, a single variant needs about **15.27 GB** in total.
 - **Optional lower GPU memory:** add `--cpu-offload` when GPU memory is limited. Measured process peaks with this option were **15.01 GiB for Student** and **19.49 GiB for Teacher** on the workload described below.
 
 [Full V1.1 changelog](CHANGELOG.md) · [Project update](https://taoliveaigc.github.io/TBDub/#v1-1)
@@ -65,7 +64,7 @@ python3.10 -m venv .venv
 source .venv/bin/activate
 ```
 
-Install PyTorch for your CUDA environment, then the single dependency file.
+Install PyTorch for your CUDA environment, then the remaining dependencies.
 The validated stack uses PyTorch 2.9.0 and torchvision 0.24.0 with CUDA 12.8:
 
 ```bash
