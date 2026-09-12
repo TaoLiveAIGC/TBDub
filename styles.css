@@ -19,7 +19,7 @@
 .section.release-section { padding-top: 32px; padding-bottom: 28px; }
 .release-heading h2 { margin: 12px 0; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
 .release-heading > p:last-child { max-width: 900px; color: var(--muted); font-size: 14px; line-height: 1.8; }
-.release-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 25px; }
+.release-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 25px; }
 .release-card { display: flex; flex-direction: column; padding: 25px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-2); }
 .release-card > span { color: var(--cyan); font-size: 11px; letter-spacing: .06em; }
 .release-card h3 { margin: 17px 0 12px; font-size: 21px; line-height: 1.35; letter-spacing: -.03em; }

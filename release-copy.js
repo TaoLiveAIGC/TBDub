@@ -2,19 +2,12 @@
 // VRAM data: the paired 2026-09-12 RTX PRO 5000 runs, not the paper's H20 table.
 window.RELEASE_COPY = {
   en: {
-    banner: "Less GPU memory. Simpler setup. Smaller downloads.",
+    banner: "Smaller downloads. Lower GPU memory with CPU offload.",
     view: "What's new",
     eyebrow: "PROJECT UPDATES · SEPTEMBER 2026",
     title: "V1.1 · Easier to run",
-    intro: "An inference and deployment update to V1.0: the same trained Teacher and Student, with one installation, compact checkpoints, and an optional mode for lower GPU memory usage.",
+    intro: "V1.1 reduces checkpoint downloads and adds optional CPU offload for the existing Teacher and Student.",
     cards: [
-      {
-        label: "SIMPLER SETUP",
-        title: "One requirements.txt",
-        text: "Install the validated MediaPipe 0.10.21 setup from one requirements.txt. It handles face detection, cropping, and landmark extraction. Inference uses a fixed prompt embedding, so no text encoder is loaded.",
-        href: "https://github.com/TaoLiveAIGC/TBDub#requirements",
-        link: "Installation guide",
-      },
       {
         label: "SMALLER DOWNLOADS",
         title: "One 12.59 GB DiT per variant",
@@ -30,7 +23,7 @@ window.RELEASE_COPY = {
         link: "Measurements and settings",
       },
     ],
-    current: "One requirements.txt · MediaPipe · standalone BF16 models · optional CPU offload",
+    current: "Compact BF16 checkpoints · optional CPU offload",
     previous: "Initial open-source release: inference code, Teacher, Student, and the original research results.",
     changelog: "Full V1.0 → V1.1 changelog",
     memory: {
@@ -50,19 +43,12 @@ window.RELEASE_COPY = {
     },
   },
   zh: {
-    banner: "更低显存，更简单的安装，更小的模型下载。",
+    banner: "更小的模型下载，可选低显存推理。",
     view: "查看更新",
     eyebrow: "项目更新 · 2026 年 9 月",
     title: "V1.1 · 更容易运行",
-    intro: "在 V1.0 基础上更新推理与部署流程：沿用已有 Teacher 和 Student，统一安装依赖、精简权重文件，并提供可选低显存模式。",
+    intro: "V1.1 沿用已有 Teacher 和 Student，减少权重下载量，并提供可选的 CPU 卸载模式来降低显存占用。",
     cards: [
-      {
-        label: "更简单的安装",
-        title: "统一一个 requirements.txt",
-        text: "通过一个 requirements.txt 安装已验证的 MediaPipe 0.10.21 环境，完成人脸检测、裁剪和关键点提取。推理直接使用固定提示词嵌入，无需加载文本编码器。",
-        href: "https://github.com/TaoLiveAIGC/TBDub#requirements",
-        link: "查看安装指南",
-      },
       {
         label: "更小的下载量",
         title: "每种 DiT 只需一个 12.59 GB 文件",
@@ -78,7 +64,7 @@ window.RELEASE_COPY = {
         link: "查看数据和测试条件",
       },
     ],
-    current: "统一 requirements.txt · MediaPipe · 独立 BF16 权重 · 可选 CPU 卸载",
+    current: "精简 BF16 权重 · 可选 CPU 卸载",
     previous: "首次开源：推理代码、Teacher、Student，以及原始研究结果。",
     changelog: "完整 V1.0 → V1.1 更新记录",
     memory: {
