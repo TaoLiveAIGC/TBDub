@@ -167,6 +167,7 @@ class TBDubPipeline(BasePipeline):
             audio_feat_window_size=audio_feat_window_size,
             embedding_num_layers=4,
             device=device,
+            cpu_offload=bool(getattr(args, "cpu_offload", False)),
             layer_indices=(9, 10, 11, 12),
             # layer_indices=(13, 14, 15, 16),
         )

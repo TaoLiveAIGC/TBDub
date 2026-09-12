@@ -194,6 +194,7 @@ the inference model was already BF16, so its resident GPU memory does not halve.
 
 Useful options:
 
+- `--cpu-offload`: keep inactive DiT/VAE weights in system memory and move HuBERT to the GPU only while extracting audio features.
 - `--cropped-input`: the source is already an aligned face video.
 - `--motion-from-latents`: pass the previous segment's tail latents to the next segment.
 - `--per-chunk-audio`: extract HuBERT features separately for each segment.
@@ -205,6 +206,45 @@ Useful options:
 Run `python inference.py --help` for checkpoint-path and sampling options.
 
 Only load preprocessing cache files that you created or trust, because Python pickle files can execute code while loading.
+
+### Lower GPU memory usage
+
+Add `--cpu-offload` to either the Teacher or Student Python command when GPU
+memory is limited. DiT and VAE weights move between CPU memory and the GPU at
+stage boundaries; the active DiT remains on the GPU throughout denoising.
+HuBERT runs on the same GPU in FP32 for feature extraction and returns to CPU
+memory afterward. DiT/VAE computation stays BF16, with the same resolution,
+sampling steps, and motion handling.
+
+This mode uses more system memory and adds CPU/GPU transfer time. Keep enough
+RAM available for the full weights and video buffers. Without this option,
+models remain on the GPU as before. The option does not change the checkpoint
+files or require additional downloads.
+
+Measured on one RTX PRO 5000 72GB with a 22 GiB PyTorch allocator limit for
+CPU-offload mode: 512×512, 15.04-second audio, 376 output frames; Teacher 30
+steps with reference/audio CFG 2.5/10, Student two steps with latent motion.
+The table reports `nvidia-smi` process memory, including CUDA overhead.
+
+| Model | GPU-resident process peak | CPU-offload process peak |
+|---|---:|---:|
+| Teacher | 27.95 GiB | 19.49 GiB |
+| Student | 27.93 GiB | 15.01 GiB |
+
+Both outputs were frame- and audio-identical to their GPU-resident baselines.
+Host-process RSS peaked at 21.9 GiB for Teacher and 21.3 GiB for Student;
+the operating system and other applications need additional RAM. In these
+single-pass measurements, inference plus output time changed from
+563.6 to 595.3 seconds for Teacher and
+63.1 to 82.1 seconds for Student. These are
+measurements on the stated workstation, not an RTX 4090 benchmark.
+
+Teacher and Student have the same parameter count and BF16 weight size.
+Teacher evaluates three CFG branches together, sharing weights but producing
+more intermediate activations; Student evaluates one conditioned branch.
+The overall peak also depends on the dominant stage: without CPU offload,
+the final VAE decode made their peaks almost equal. Longer videos may require
+more memory because the final VAE decode still spans the assembled sequence.
 
 MediaPipe preprocessing is available as an alternative to the OpenMMLab path.
 Install `requirements-mediapipe.txt` instead of `requirements.txt`, after installing

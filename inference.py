@@ -149,6 +149,8 @@ def build_pipeline(args: argparse.Namespace) -> tuple[TBDubPipeline, torch.Tenso
     runtime_vram_config = dict(VRAM_CONFIG)
     for key in ("offload_device", "onload_device", "preparing_device", "computation_device"):
         runtime_vram_config[key] = args.device
+    if getattr(args, "cpu_offload", False):
+        runtime_vram_config["offload_device"] = "cpu"
 
     pipeline = TBDubPipeline.from_pretrained(
         torch_dtype=torch.bfloat16,
@@ -360,6 +362,10 @@ def parse_args() -> argparse.Namespace:
         help="First source-video frame to use.",
     )
     parser.add_argument("--device", default="cuda:0", help="Torch device used for inference.")
+    parser.add_argument(
+        "--cpu-offload", action="store_true",
+        help="Keep inactive DiT/VAE weights in CPU memory and move HuBERT to the GPU only for feature extraction.",
+    )
 
     parser.add_argument(
         "--dit-checkpoint", "--ckpt_path",

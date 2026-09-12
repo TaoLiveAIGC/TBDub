@@ -28,6 +28,7 @@ class HubertProcessor(nn.Module):
         sample_rate: int = 16000,
         layer_indices: tuple[int, ...] = (9, 10, 11, 12),
         cache_dir: str | None = None,
+        cpu_offload: bool = False,
     ):
         super().__init__()
         self.num_frames = num_frames
@@ -42,7 +43,10 @@ class HubertProcessor(nn.Module):
             raise ValueError("layer_indices must match embedding_num_layers.")
 
         model_path = str(Path(model_path).expanduser().resolve())
-        self.model = HubertModel.from_pretrained(model_path, local_files_only=True).to(device=device)
+        self.cpu_offload = cpu_offload
+        self.computation_device = torch.device(device)
+        initial_device = "cpu" if cpu_offload else device
+        self.model = HubertModel.from_pretrained(model_path, local_files_only=True).to(device=initial_device)
         self.model.eval()
         self.model.feature_extractor._freeze_parameters()
         self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_path, local_files_only=True)
@@ -87,12 +91,18 @@ class HubertProcessor(nn.Module):
         return torch.stack(windows)
 
     def _extract_features(self, audio):
-        values = np.squeeze(self.feature_extractor(audio, sampling_rate=self.sample_rate).input_values)
-        values = torch.from_numpy(values).unsqueeze(0).float().to(self.device)
-        outputs = self.model(values, output_hidden_states=True)
-        selected = [outputs.hidden_states[index] for index in self.layer_indices]
-        features = torch.stack(selected, dim=1).squeeze(0)
-        return rearrange(features, "l f c -> f l c").detach().cpu().float()
+        try:
+            if self.cpu_offload:
+                self.model.to(device=self.computation_device)
+            values = np.squeeze(self.feature_extractor(audio, sampling_rate=self.sample_rate).input_values)
+            values = torch.from_numpy(values).unsqueeze(0).float().to(self.device)
+            outputs = self.model(values, output_hidden_states=True)
+            selected = [outputs.hidden_states[index] for index in self.layer_indices]
+            features = torch.stack(selected, dim=1).squeeze(0)
+            return rearrange(features, "l f c -> f l c").detach().cpu().float()
+        finally:
+            if self.cpu_offload:
+                self.model.to(device="cpu")
 
     @torch.no_grad()
     def _audio2feat(self, audio_path_or_array):
